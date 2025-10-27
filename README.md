@@ -32,3 +32,23 @@ node index.js
 - Stop Node processes on Windows PowerShell: `Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force`
 
 For details about endpoints and examples, open `DOCS_API.md`.
+
+## Running tests
+
+This project includes a small test suite under `src/test` (uses Jest + Supertest).
+
+Before running tests, make sure you have a MongoDB instance available. Tests will use the following environment variables:
+
+- `MONGO_URI_TEST` — optional. If not set the test suite will fall back to `MONGO_URI` or `mongodb://localhost:27017/networkdb_test`.
+- `JWT_SECRET` — the test runner will set a default if not present, but you can set it to your preferred value.
+- `DISABLE_EMAIL=true` — set this to avoid sending real emails during tests (the test harness sets this automatically).
+
+Run tests with:
+
+```powershell
+npm test
+```
+
+Notes:
+- The project exports an Express `app` in `app.js` so tests can import the app without starting the HTTP server. The `index.js` file starts the server and connects to the DB for normal runs.
+- Tests create unique email addresses per-run (timestamp suffixes) to avoid duplicate-key errors.

@@ -95,12 +95,15 @@ module.exports = {
       const resetUrl = `http://yourfrontend.com/reset-password/${resetToken}`;
       const message = 'You are receiving this email because you (or someone else) has requested the reset of a password. Please make a PUT request to: \n\n' + resetUrl;
 
-      await transporter.sendMail({
-        to: user.email,
-        from: process.env.EMAIL_USER,
-        subject: 'Password Reset Request',
-        text: message
-      });
+      // Only send email when not explicitly disabled (useful for test env)
+      if (process.env.DISABLE_EMAIL !== 'true' && process.env.NODE_ENV !== 'test') {
+        await transporter.sendMail({
+          to: user.email,
+          from: process.env.EMAIL_USER,
+          subject: 'Password Reset Request',
+          text: message
+        });
+      }
 
       res.status(200).json({message: 'Email sent successfully'});
     } catch (error) {

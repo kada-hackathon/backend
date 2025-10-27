@@ -1,8 +1,5 @@
 # NEBWORK Backend — API Reference
 
-This document describes the main endpoints, request/response shapes, environment variables and important operational notes for the NEBWORK backend in this repo.
-
----
 
 ## 1) Environment variables (.env)
 Create a `.env` file in the project root with the following keys:
@@ -20,12 +17,6 @@ JWT_SECRET=your_jwt_secret_here
 EMAIL_USER=youremail@gmail.com
 EMAIL_PASS=your_app_password_here
 ```
-
-Notes about Gmail and `EMAIL_PASS`:
-- If using Gmail, enable 2FA and create an App Password, then paste it to `EMAIL_PASS` (no spaces).
-- If you do not want to configure email now, the forgot-password flow in code can be temporarily disabled (the controller has comments where to skip sending mail).
-
----
 
 ## 2) How to run
 
@@ -150,49 +141,6 @@ Notes:
 - Query params: `?page=1&limit=10`
 - Response: list of users (password is omitted with `.select('-password')`) and pagination metadata.
 
----
-
-## 6) Request examples (curl)
-
-Login example (curl):
-
-```bash
-curl -X POST http://localhost:5000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user@gmail.com","password":"password123"}'
-```
-
-Add employee (curl):
-
-```bash
-curl -X POST http://localhost:5000/api/admin/employees \
-  -H "Content-Type: application/json" \
-  -d '{"email":"employee@gmail.com","password":"temp123","name":"Employee","division":"Eng"}'
-```
-
-Edit employee (curl):
-
-```bash
-curl -X PUT http://localhost:5000/api/admin/employees/<id> \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Updated"}'
-```
-
-Delete employee (curl):
-
-```bash
-curl -X DELETE http://localhost:5000/api/admin/employees/<id>
-```
-
-Forgot password (curl):
-
-```bash
-curl -X POST http://localhost:5000/api/auth/forgot-password \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user@gmail.com"}'
-```
-
----
 
 ## 7) Known issues & operational notes
 - Email sending failures: Gmail requires App Passwords when 2FA is enabled. If you see `Missing credentials for "PLAIN"` or `EAUTH`, check `EMAIL_USER` and `EMAIL_PASS` in `.env` and generate an App Password.
@@ -202,7 +150,31 @@ curl -X POST http://localhost:5000/api/auth/forgot-password \
 
 ---
 
+### Testing / CI notes
 
+- The test suite uses Jest + Supertest and is located in `src/test`. Tests import the Express `app` from `app.js` (so they don't start a real HTTP server via `index.js`).
+- Environment variables used by tests:
+  - `MONGO_URI_TEST` (optional) — MongoDB connection for test runs. If not provided, the tests will fallback to `MONGO_URI` or `mongodb://localhost:27017/networkdb_test`.
+  - `JWT_SECRET` — the test runner sets a default if missing, but you can provide one.
+  - `DISABLE_EMAIL=true` — set this to prevent tests from attempting to send real emails. The test suite sets this value automatically when running.
 
----
+- Recommendation for CI:
+  1. Set `MONGO_URI_TEST` to a disposable MongoDB instance (local container or cloud test DB).
+  2. Set `DISABLE_EMAIL=true` to avoid outbound email from CI.
+  3. Provide `JWT_SECRET` as a secret variable in CI.
+
+### How tests handle email and tokens
+
+- For reliability, the code will skip sending emails when `DISABLE_EMAIL` is set to `true` or when `NODE_ENV` is `test`.
+- Tests create unique email addresses (timestamp suffix) to avoid duplicate key errors on the `email` index. The `User` model enforces a unique email index.
+
+### Quick test commands
+
+```powershell
+# run tests (powershell)
+npm test
+
+# Run a single test file
+npx jest src/test/auth.test.js
+```
 
