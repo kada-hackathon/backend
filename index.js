@@ -8,9 +8,11 @@ const authRoutes = require('./src/routes/authRoutes');
 const adminRoutes = require('./src/routes/adminRoutes');
 const workLogRoutes = require('./src/routes/workLogRoutes');
 
+// connect to database
+connectDB();
 
-// Load env vars
-dotenv.config(); 
+// create app from app.js
+const app = require('./app');
 
 // Koneksi ke Database
 connectDB(); 

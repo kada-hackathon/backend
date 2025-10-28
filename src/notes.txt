@@ -1,2 +1,0 @@
-login => validation , domain gmail sama yahoo, forgot pass 
-1. bikin schema di models
