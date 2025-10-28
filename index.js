@@ -12,10 +12,7 @@ const workLogRoutes = require('./src/routes/workLogRoutes');
 connectDB();
 
 // create app from app.js
-const app = require('./app');
-
-// Koneksi ke Database
-connectDB(); 
+// const app = require('./app');
 
 const app = express();
 

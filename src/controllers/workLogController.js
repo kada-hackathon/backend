@@ -31,6 +31,26 @@ exports.editWorkLog = async (req, res) => {
   }
 };
 
+exports.deleteWorkLog = async (req, res) => {
+  try {
+    const worklog = await WorkLog.findById(req.params.id);
+
+    if (!worklog) {
+      return res.status(404).json({ message: "WorkLog not found" });
+    }
+
+    // Hanya pemilik yang bisa hapus
+    if (worklog.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "You are not allowed to delete this worklog" });
+    }
+
+    await worklog.deleteOne();
+    res.status(200).json({ message: "WorkLog deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 exports.addVersion = async (req, res) => {
   try {
     const { message } = req.body;
@@ -48,6 +68,36 @@ exports.addVersion = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+exports.getVersions = async (req, res) => {
+  try {
+    // Cari WorkLog berdasarkan ID
+    const worklog = await WorkLog.findById(req.params.id).populate("log_history");
+    if (!worklog) {
+      return res.status(404).json({ message: "WorkLog not found" });
+    }
+
+    // Validasi agar hanya owner atau collaborator yang bisa melihat versi
+    const isOwner = worklog.user.toString() === req.user._id.toString();
+    const isCollaborator = worklog.collaborators.some(
+      (id) => id.toString() === req.user._id.toString()
+    );
+
+    if (!isOwner && !isCollaborator) {
+      return res.status(403).json({ message: "You are not allowed to view these versions" });
+    }
+
+    // Ambil log history dengan data user
+    const versions = await LogHistory.find({ _id: { $in: worklog.log_history } })
+      .populate("user", "name email division profile_photo")
+      .sort({ datetime: -1 });
+
+    res.status(200).json({ worklog_id: worklog._id, title: worklog.title, versions });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 
 exports.addCollaborator = async (req, res) => {
   try {
@@ -68,6 +118,53 @@ exports.addCollaborator = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// GET Collaborators
+exports.getCollaborators = async (req, res) => {
+  try {
+    const log = await WorkLog.findById(req.params.id).populate(
+      "collaborators",
+      "name email division role"
+    );
+    if (!log) return res.status(404).json({ message: "WorkLog not found" });
+
+    res.json({
+      message: "Collaborators retrieved successfully",
+      collaborators: log.collaborators,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// DELETE Collaborator
+exports.deleteCollaborator = async (req, res) => {
+  try {
+    const { collaboratorId } = req.params;
+    const log = await WorkLog.findById(req.params.id);
+
+    if (!log) return res.status(404).json({ message: "WorkLog not found" });
+
+    // Cek apakah user pemilik log
+    if (log.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Hapus kolaborator
+    log.collaborators = log.collaborators.filter(
+      (id) => id.toString() !== collaboratorId
+    );
+    await log.save();
+
+    res.json({
+      message: "Collaborator removed successfully",
+      collaborators: log.collaborators,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 
 exports.filterWorkLogs = async (req, res) => {
   const { from, to, tag } = req.query;
