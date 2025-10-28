@@ -1,34 +1,13 @@
 // server.js atau app.js
 require('dotenv').config(); //harus paling atassss
-const express = require('express');
 const dotenv = require('dotenv');
-const cors = require("cors");
 const connectDB = require('./src/config/db');
-const authRoutes = require('./src/routes/authRoutes');
-const adminRoutes = require('./src/routes/adminRoutes');
-const workLogRoutes = require('./src/routes/workLogRoutes');
 
 // connect to database
 connectDB();
 
 // create app from app.js
-// const app = require('./app');
-
-const app = express();
-
-app.use(cors({
-  origin: "http://localhost:5173",
-  credentials: true
-}));
-
-// Middleware
-app.use(express.json());
-
-// Mount Routers
-app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/worklogs', workLogRoutes);
-
+const app = require('./app');
 
 // Jalankan Server
 const PORT = process.env.PORT || 5000; 
