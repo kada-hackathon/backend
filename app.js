@@ -5,6 +5,26 @@ const adminRoutes = require('./src/routes/adminRoutes');
 
 const app = express();
 
+// CORS middleware to allow frontend requests
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  
+  // Allow both localhost:5173 and localhost:5174
+  if (origin === 'http://localhost:5173' || origin === 'http://localhost:5174') {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
+
 // Middleware
 app.use(express.json());
 
