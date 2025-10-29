@@ -14,7 +14,10 @@ exports.protect = async (req, res, next) => {
 
     // Verifikasi JWT
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('Decoded token:', decoded); // Debug
+    
     req.user = await User.findById(decoded.id).select("-password");
+    console.log('User from DB:', req.user?.email, req.user?._id); // Debug
 
     if (!req.user) {
       return res.status(401).json({ message: "User not found or inactive" });

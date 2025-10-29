@@ -46,7 +46,7 @@ module.exports = {
       // compare hashed password
       const isMatch = user && await bcrypt.compare(password, user.password);
       if(!isMatch){
-        return res.status(401).json({message :"Your password is incorrect!"});
+        return res.status(401).json({message :"Your password or email is incorrect!"});
       }
 
       res.status(200).json({
@@ -115,6 +115,37 @@ module.exports = {
       console.error('Forgot Password error:', error.message);
       console.error('Error details:', error);
       return res.status(500).json({message: 'Failed to process password reset', error: error.message});
+    }
+  },
+  getProfile: async (req, res) => {
+    // GET /api/auth/profile - Get current user profile
+    try {
+      const userId = req.user?.id; // dari JWT middleware
+      
+      if (!userId) {
+        return res.status(401).json({message: 'User not authenticated'});
+      }
+
+      const user = await User.findById(userId).select('-password');
+      
+      if (!user) {
+        return res.status(404).json({message: 'User not found'});
+      }
+
+      res.status(200).json({
+        message: 'Profile retrieved successfully',
+        user: {
+          id: user._id,
+          email: user.email,
+          name: user.name,
+          division: user.division,
+          role: user.role,
+          profilePicture: user.profilePicture
+        }
+      });
+    } catch (error) {
+      console.error('Get Profile error:', error);
+      return res.status(500).json({message: 'Internal server error'});
     }
   },
 };
