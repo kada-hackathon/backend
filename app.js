@@ -11,8 +11,8 @@ const app = express();
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   
-  // Allow both localhost:5173 and localhost:5174
-  if (origin === 'http://localhost:5173' || origin === 'http://localhost:5174') {
+  // Allow localhost dengan semua port dev (5173, 5174, 8080, etc)
+  if (origin && origin.startsWith('http://localhost:')) {
     res.header('Access-Control-Allow-Origin', origin);
   }
   
