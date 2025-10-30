@@ -4,6 +4,7 @@ const cors = require("cors");
 const authRoutes = require('./src/routes/authRoutes');
 const adminRoutes = require('./src/routes/adminRoutes');
 const workLogRoutes = require('./src/routes/workLogRoutes');
+const setupSwagger = require('./src/swagger/swagger');
 
 const app = express();
 
@@ -34,5 +35,8 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/worklogs', workLogRoutes);
+
+// Setup Swagger Docs
+setupSwagger(app);
 
 module.exports = app;
