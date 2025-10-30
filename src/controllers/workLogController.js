@@ -174,7 +174,38 @@ exports.filterWorkLogs = async (req, res) => {
   if (tag) filter.tag = { $in: tag.split(",") };
 
   const logs = await WorkLog.find(filter)
-    .populate("user", "name division")
-    .populate("collaborators", "name");
+    .populate("user", "name email division profile_photo profilePicture dateOfJoin join_date")
+    .populate("collaborators", "name email division")
+    .sort({ datetime: -1 });
   res.json(logs);
+};
+
+// GET all worklogs dengan populated user data
+exports.getAllWorkLogs = async (req, res) => {
+  try {
+    const logs = await WorkLog.find()
+      .populate("user", "name email division profile_photo profilePicture dateOfJoin join_date")
+      .populate("collaborators", "name email division")
+      .sort({ datetime: -1 });
+    res.json({ worklogs: logs });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// GET detail worklog by ID
+exports.getWorkLogById = async (req, res) => {
+  try {
+    const worklog = await WorkLog.findById(req.params.id)
+      .populate("user", "name email division profile_photo profilePicture dateOfJoin join_date")
+      .populate("collaborators", "name email division");
+    
+    if (!worklog) {
+      return res.status(404).json({ message: "WorkLog not found" });
+    }
+    
+    res.json(worklog);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };

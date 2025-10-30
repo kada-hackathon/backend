@@ -10,10 +10,14 @@ const {
   getCollaborators,
   deleteCollaborator,
   filterWorkLogs,
+  getAllWorkLogs,
+  getWorkLogById,
 } = require("../controllers/workLogController");
 const { protect } = require("../middlewares/authMiddleware");
 
 // Worklog Routes
+router.get("/", protect, getAllWorkLogs);  // GET semua worklogs
+router.get("/:id", protect, getWorkLogById);  // GET detail worklog by ID
 router.post("/", protect, addWorkLog);
 router.put("/:id", protect, editWorkLog);
 router.delete("/:id", protect, deleteWorkLog);
@@ -26,8 +30,5 @@ router.get("/:id/versions", protect, getVersions);
 router.post("/:id/collaborators", protect, addCollaborator);
 router.get("/:id/collaborators", protect, getCollaborators);
 router.delete("/:id/collaborators/:collaboratorId", protect, deleteCollaborator);
-
-// Worklog Filter Routes
-router.get("/", protect, filterWorkLogs);
 
 module.exports = router;
