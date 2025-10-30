@@ -63,7 +63,10 @@ exports.addVersion = async (req, res) => {
     });
     log.log_history.push(version._id);
     await log.save();
-    res.json(version);
+    res.status(201).json({
+      message: "Version added",
+      version,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
