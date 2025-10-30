@@ -24,7 +24,7 @@ const transporter = nodemailer.createTransport({
 // Generate JWT Token
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
-        expiresIn: '1h', // Token berlaku 1 jam
+        expiresIn: '7d', // Token berlaku 7 hari
     });
 };
 
