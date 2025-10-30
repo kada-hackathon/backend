@@ -24,7 +24,7 @@ const transporter = nodemailer.createTransport({
 // Generate JWT Token
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
-        expiresIn: '1h', // Token berlaku 1 jam
+        expiresIn: '7d', // Token berlaku 7 hari
     });
 };
 
@@ -58,6 +58,8 @@ module.exports = {
           name: user.name,
           division: user.division,
           role: user.role,
+          profilePicture: user.profile_photo,
+          dateOfJoin: user.join_date
         }
       });
       
@@ -93,7 +95,7 @@ module.exports = {
       await user.save();
 
       const resetUrl = `http://yourfrontend.com/reset-password/${resetToken}`;
-      const message = 'You are receiving this email because you (or someone else) has requested the reset of a password. Please make a PUT request to: \n\n' + resetUrl;
+      const message = 'You are receiving this email because you (or someone else) has requested the reset of a password. Please reset your password by clicking the link below (Expire in one hour): \n\n' + resetUrl;
 
       // Only send email when not explicitly disabled (useful for test env)
       if (process.env.DISABLE_EMAIL !== 'true' && process.env.NODE_ENV !== 'test') {
@@ -140,11 +142,55 @@ module.exports = {
           name: user.name,
           division: user.division,
           role: user.role,
-          profilePicture: user.profilePicture
+          profilePicture: user.profile_photo,
+          dateOfJoin: user.join_date
         }
       });
     } catch (error) {
       console.error('Get Profile error:', error);
+      return res.status(500).json({message: 'Internal server error'});
+    }
+  },
+  updateProfile: async (req, res) => {
+    // PUT /api/auth/profile - Update current user profile
+    try {
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({message: 'User not authenticated'});
+      }
+
+      const { profilePicture } = req.body;
+      
+      // Update only truly editable fields by user
+      // join_date, name, email, division are managed by admin only
+      const updateData = {};
+      if (profilePicture !== undefined) updateData.profile_photo = profilePicture;
+
+      const user = await User.findByIdAndUpdate(
+        userId,
+        updateData,
+        { new: true }
+      ).select('-password');
+
+      if (!user) {
+        return res.status(404).json({message: 'User not found'});
+      }
+
+      res.status(200).json({
+        message: 'Profile updated successfully',
+        user: {
+          id: user._id,
+          email: user.email,
+          name: user.name,
+          division: user.division,
+          role: user.role,
+          profilePicture: user.profile_photo,
+          dateOfJoin: user.join_date
+        }
+      });
+    } catch (error) {
+      console.error('Update Profile error:', error);
       return res.status(500).json({message: 'Internal server error'});
     }
   },

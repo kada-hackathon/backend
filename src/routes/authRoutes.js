@@ -15,5 +15,6 @@ const { protect } = require('../middlewares/authMiddleware');
   router.post('/logout', authController.logout);
   router.post('/forgot-password', authController.forgotPassword);
   router.get('/profile', protect, authController.getProfile);
+  router.put('/profile', protect, authController.updateProfile);
 
 module.exports = router;
