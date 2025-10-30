@@ -15,7 +15,10 @@
     "mongodb-memory-server": "^10.2.3",
     "supertest": "^7.1.4"
   },
+  "jest": {
+    "setupFiles": ["<rootDir>/src/test/jest.setup.js"]
+  },
   "scripts": {
-    "test" : "jest --runInBand"
+    "test" : "jest --runInBand --json --outputFile=reports/test-results.json"
   }
 }
