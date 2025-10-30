@@ -8,7 +8,9 @@
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.2",
-    "nodemailer": "^7.0.10"
+    "nodemailer": "^7.0.10",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "jest": "^30.2.0",
@@ -16,9 +18,11 @@
     "supertest": "^7.1.4"
   },
   "jest": {
-    "setupFiles": ["<rootDir>/src/test/jest.setup.js"]
+    "setupFiles": [
+      "<rootDir>/src/test/jest.setup.js"
+    ]
   },
   "scripts": {
-    "test" : "jest --runInBand --json --outputFile=reports/test-results.json"
+    "test": "jest --runInBand --json --outputFile=reports/test-results.json"
   }
 }
