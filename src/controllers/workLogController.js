@@ -169,18 +169,44 @@ exports.deleteCollaborator = async (req, res) => {
 };
 
 
+// Search & Filter worklogs dengan query parameters
 exports.filterWorkLogs = async (req, res) => {
-  const { from, to, tag } = req.query;
-  let filter = {};
+  try {
+    const { search, tag, from, to } = req.query;
+    let filter = {};
 
-  if (from && to) filter.datetime = { $gte: new Date(from), $lte: new Date(to) };
-  if (tag) filter.tag = { $in: tag.split(",") };
+    // Search by title, content, or user name
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { content: { $regex: search, $options: 'i' } }
+      ];
+    }
 
-  const logs = await WorkLog.find(filter)
-    .populate("user", "name email division profile_photo profilePicture dateOfJoin join_date")
-    .populate("collaborators", "name email division")
-    .sort({ datetime: -1 });
-  res.json(logs);
+    // Filter by tags (dapat comma-separated atau array)
+    if (tag) {
+      const tags = Array.isArray(tag) ? tag : tag.split(",");
+      filter.tag = { $in: tags };
+    }
+
+    // Filter by date range
+    if (from && to) {
+      filter.datetime = { $gte: new Date(from), $lte: new Date(to) };
+    } else if (from) {
+      filter.datetime = { $gte: new Date(from) };
+    } else if (to) {
+      filter.datetime = { $lte: new Date(to) };
+    }
+
+    const logs = await WorkLog.find(filter)
+      .populate("user", "name email division profile_photo profilePicture dateOfJoin")
+      .populate("collaborators", "name email division")
+      .sort({ datetime: -1 });
+
+    res.json({ worklogs: logs });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 // GET all worklogs dengan populated user data

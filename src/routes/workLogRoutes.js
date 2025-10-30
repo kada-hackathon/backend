@@ -16,6 +16,7 @@ const {
 const { protect } = require("../middlewares/authMiddleware");
 
 // Worklog Routes
+router.get("/filter", protect, filterWorkLogs);  // GET filter worklogs (MUST BE BEFORE /:id)
 router.get("/", protect, getAllWorkLogs);  // GET semua worklogs
 router.get("/:id", protect, getWorkLogById);  // GET detail worklog by ID
 router.post("/", protect, addWorkLog);
