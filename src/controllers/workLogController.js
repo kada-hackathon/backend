@@ -1,12 +1,17 @@
 const WorkLog = require("../models/WorkLog");
 const LogHistory = require("../models/LogHistory");
 const User = require("../models/User");
+const { generateEmbedding, prepareTextForEmbedding } = require("../services/embeddingService");
 
 exports.addWorkLog = async (req, res) => {
   try {
     const { title, content, tag, media } = req.body;
+
+    const textToEmbed = prepareTextForEmbedding({ title, content, tag });
+    const embedding = await generateEmbedding(textToEmbed);
+
     const log = await WorkLog.create({
-      title, content, tag, media, user: req.user._id
+      title, content, tag, media, user: req.user._id, embedding
     });
     res.status(201).json(log);
   } catch (error) {
@@ -19,7 +24,19 @@ exports.editWorkLog = async (req, res) => {
     const log = await WorkLog.findById(req.params.id);
     if (!log) return res.status(404).json({ message: "Not found" });
 
-    const updated = await WorkLog.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    // Regenerate embedding with updated content
+    const textToEmbed = prepareTextForEmbedding({
+      title: req.body.title || log.title,
+      content: req.body.content || log.content,
+      tag: req.body.tag || log.tag
+    });
+    const embedding = await generateEmbedding(textToEmbed);
+
+    const updated = await WorkLog.findByIdAndUpdate(
+      req.params.id,
+      { ...req.body, embedding },
+      { new: true }
+    );
     // Simpan versi lama
     await LogHistory.create({
       message: `Edited post: ${log.title}`,
