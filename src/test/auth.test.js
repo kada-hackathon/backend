@@ -6,7 +6,7 @@ const mongoose = require('mongoose');
 const app = require('../../app');
 
 beforeAll(async () => {
-    const uri = process.env.MONGO_URI_TEST  || 'mongodb://localhost:27017/networkdb_test';
+    const uri = process.env.MONGO_URI_TEST || 'mongodb://localhost:27017/networkdb_test';
     await mongoose.connect(uri);
 });
 
