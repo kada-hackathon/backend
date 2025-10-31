@@ -2,6 +2,7 @@
 // POST /api/auth/login //success
 // POST /api/auth/logout //success
 // POST /api/auth/forgot-password //success
+// POST /api/auth/reset-password //success
 // GET /api/auth/profile //success
 
 const express = require('express');
@@ -14,6 +15,7 @@ const { protect } = require('../middlewares/authMiddleware');
   router.post('/login', authController.login);
   router.post('/logout', authController.logout);
   router.post('/forgot-password', authController.forgotPassword);
+  router.post('/reset-password', authController.resetPassword);
   router.get('/profile', protect, authController.getProfile);
   router.put('/profile', protect, authController.updateProfile);
 

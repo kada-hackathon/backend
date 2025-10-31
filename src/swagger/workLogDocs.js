@@ -253,27 +253,95 @@
  * @swagger
  * /api/worklogs/filter:
  *   get:
- *     summary: Filter work logs by date range and tag
+ *     summary: Search and filter work logs (division-aware)
  *     tags: [WorkLogs]
  *     security:
  *       - bearerAuth: []
+ *     description: |
+ *       Retrieve work logs based on search criteria and filters.
+ *       Returns only work logs from the same division as the authenticated user.
  *     parameters:
  *       - in: query
- *         name: from
+ *         name: search
  *         schema:
  *           type: string
- *           example: 2025-01-01
- *       - in: query
- *         name: to
- *         schema:
- *           type: string
- *           example: 2025-01-31
+ *         description: Search by title or content (case-insensitive)
+ *         example: "AI Development"
  *       - in: query
  *         name: tag
  *         schema:
  *           type: string
- *           example: Design,UI
+ *         description: Filter by tags (comma-separated or single tag). Matches any tag.
+ *         example: "nodejs,react"
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for date range filter (YYYY-MM-DD)
+ *         example: "2024-10-01"
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for date range filter (YYYY-MM-DD)
+ *         example: "2024-10-31"
  *     responses:
  *       200:
  *         description: Successfully retrieved filtered work logs
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 worklogs:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       title:
+ *                         type: string
+ *                       content:
+ *                         type: string
+ *                       tag:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                       user:
+ *                         type: object
+ *                       datetime:
+ *                         type: string
+ *                         format: date-time
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
+
+/**
+ * @swagger
+ * /api/worklogs/{id}:
+ *   get:
+ *     summary: Get a specific work log by ID
+ *     tags: [WorkLogs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Work log ID
+ *         example: "671b1f3f2c8d7b8a8c4b1234"
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved work log
+ *       404:
+ *         description: Work log not found
+ *       401:
+ *         description: Unauthorized
  */

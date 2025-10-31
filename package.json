@@ -24,6 +24,7 @@
     ]
   },
   "scripts": {
-    "test": "jest --runInBand --json --outputFile=reports/test-results.json"
+    "test": "jest --runInBand --json --outputFile=reports/test-results.json",
+    "dev" : "nodemon index.js"
   }
 }
