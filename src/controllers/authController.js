@@ -113,7 +113,7 @@ module.exports = {
       
 
       const resetUrl = `http://localhost:8080/new-password/${resetToken}`;
-      const message = 'You are receiving this email because you (or someone else) has requested the reset of a password. Please reset your password by clicking the link below (Expire in one hour): \n\n' + resetUrl;
+      const message = 'You are receiving this email because you (or someone else) has requested the reset of a password of NEBWORK. Please reset your password by clicking the link below (Expire in one hour): \n\n' + resetUrl;
 
       // Only send email when not explicitly disabled (useful for test env)
       if (process.env.DISABLE_EMAIL !== 'true' && process.env.NODE_ENV !== 'test') {
