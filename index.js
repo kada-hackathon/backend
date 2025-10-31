@@ -10,5 +10,5 @@ connectDB();
 const app = require('./app');
 
 // Jalankan Server
-const PORT = process.env.PORT || 5000; 
+const PORT =  5000; 
 app.listen(PORT, console.log(`Server berjalan di mode ${process.env.NODE_ENV} di port ${PORT}`));
