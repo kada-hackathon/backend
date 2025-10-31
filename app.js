@@ -3,7 +3,8 @@ const express = require('express');
 const cors = require("cors");
 const authRoutes = require('./src/routes/authRoutes');
 const adminRoutes = require('./src/routes/adminRoutes');
-const workLogRoutes = require('./src/routes/workLogRoutes');
+const worklogRoutes = require('./src/routes/worklogRoutes');
+const setupSwagger = require('./src/swagger/swagger');
 const chatBotRoutes = require('./src/routes/chatbotRoutes');
 
 const app = express();
@@ -12,8 +13,8 @@ const app = express();
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   
-  // Allow both localhost:5173 and localhost:5174
-  if (origin === 'http://localhost:5173' || origin === 'http://localhost:5174') {
+  // Allow localhost dengan semua port dev (5173, 5174, 8080, etc)
+  if (origin && origin.startsWith('http://localhost:')) {
     res.header('Access-Control-Allow-Origin', origin);
   }
   
@@ -34,7 +35,10 @@ app.use(express.json());
 // Mount routers
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/worklogs', workLogRoutes);
+app.use('/api/worklogs', worklogRoutes);
+
+// Setup Swagger Docs
+setupSwagger(app);
 app.use('/api/chatbot', chatBotRoutes);
 
 module.exports = app;

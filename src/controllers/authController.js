@@ -24,7 +24,7 @@ const transporter = nodemailer.createTransport({
 // Generate JWT Token
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
-        expiresIn: '1h', // Token berlaku 1 jam
+        expiresIn: '7d', // Token berlaku 7 hari
     });
 };
 
@@ -32,6 +32,7 @@ module.exports = {
   login: async (req, res) => {
     // POST /api/auth/login - Email, password
     const { email, password } = req.body;
+   
     try {
       if(!email || !password){
         return res.status(400).json({message: 'Please provide email and password'});
@@ -43,11 +44,21 @@ module.exports = {
 
       const user = await User.findOne({email});
       
-      // compare hashed password
-      const isMatch = user && await bcrypt.compare(password, user.password);
-      if(!isMatch){
+      if (!user) {
+        console.log('❌ User not found:', email);
         return res.status(401).json({message :"Your password or email is incorrect!"});
       }
+
+      // compare hashed password
+      const isMatch = await bcrypt.compare(password, user.password);
+      
+      
+      if(!isMatch){
+        
+        return res.status(401).json({message :"Your password or email is incorrect!"});
+      }
+
+      
 
       res.status(200).json({
         message: 'Login successful',
@@ -58,11 +69,13 @@ module.exports = {
           name: user.name,
           division: user.division,
           role: user.role,
+          profilePicture: user.profile_photo,
+          dateOfJoin: user.join_date
         }
       });
       
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('❌ Login error:', error);
       return res.status(500).json({message: 'Internal server error'});
     }
   },
@@ -76,6 +89,8 @@ module.exports = {
     // POST /api/auth/forgot-password - Email verification
     const { email } = req.body;
 
+    console.log('📧 Forgot Password Request for:', email);
+
     if(!email){
       return res.status(400).json({message: 'Please provide an email'});
     }
@@ -84,25 +99,35 @@ module.exports = {
     try {
       user = await User.findOne({email});
       if(!user){
+        console.log('❌ User not found:', email);
         return res.status(404).json({message: 'User not found with this email'});
       }
+
+      console.log('✓ User found:', email);
 
       const resetToken = crypto.randomBytes(20).toString('hex');
       user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
       user.resetPasswordExpire = Date.now() + 3600000; // 1 hour
       await user.save();
 
-      const resetUrl = `http://yourfrontend.com/reset-password/${resetToken}`;
-      const message = 'You are receiving this email because you (or someone else) has requested the reset of a password. Please make a PUT request to: \n\n' + resetUrl;
+      
+
+      const resetUrl = `http://localhost:8080/new-password/${resetToken}`;
+      const message = 'You are receiving this email because you (or someone else) has requested the reset of a password. Please reset your password by clicking the link below (Expire in one hour): \n\n' + resetUrl;
 
       // Only send email when not explicitly disabled (useful for test env)
       if (process.env.DISABLE_EMAIL !== 'true' && process.env.NODE_ENV !== 'test') {
+        console.log('📤 Sending email to:', email);
         await transporter.sendMail({
           to: user.email,
           from: process.env.EMAIL_USER,
           subject: 'Password Reset Request',
           text: message
         });
+        
+      } else {
+        console.log('⚠️ Email sending disabled (DISABLE_EMAIL or NODE_ENV=test)');
+        console.log('📋 Reset URL would be:', resetUrl);
       }
 
       res.status(200).json({message: 'Email sent successfully'});
@@ -112,8 +137,8 @@ module.exports = {
         user.resetPasswordExpire = undefined;
         await user.save();
       }
-      console.error('Forgot Password error:', error.message);
-      console.error('Error details:', error);
+
+      console.error('Forgot password error details:', error);
       return res.status(500).json({message: 'Failed to process password reset', error: error.message});
     }
   },
@@ -140,12 +165,104 @@ module.exports = {
           name: user.name,
           division: user.division,
           role: user.role,
-          profilePicture: user.profilePicture
+          profilePicture: user.profile_photo,
+          dateOfJoin: user.join_date
         }
       });
     } catch (error) {
       console.error('Get Profile error:', error);
       return res.status(500).json({message: 'Internal server error'});
+    }
+  },
+  updateProfile: async (req, res) => {
+    // PUT /api/auth/profile - Update current user profile
+    try {
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({message: 'User not authenticated'});
+      }
+
+      const { profilePicture } = req.body;
+      
+      // Update only truly editable fields by user
+      // join_date, name, email, division are managed by admin only
+      const updateData = {};
+      if (profilePicture !== undefined) updateData.profile_photo = profilePicture;
+
+      const user = await User.findByIdAndUpdate(
+        userId,
+        updateData,
+        { new: true }
+      ).select('-password');
+
+      if (!user) {
+        return res.status(404).json({message: 'User not found'});
+      }
+
+      res.status(200).json({
+        message: 'Profile updated successfully',
+        user: {
+          id: user._id,
+          email: user.email,
+          name: user.name,
+          division: user.division,
+          role: user.role,
+          profilePicture: user.profile_photo,
+          dateOfJoin: user.join_date
+        }
+      });
+    } catch (error) {
+      console.error('Update Profile error:', error);
+      return res.status(500).json({message: 'Internal server error'});
+    }
+  },
+  resetPassword: async (req, res) => {
+    // POST /api/auth/reset-password - Reset password with token
+    const { token, newPassword } = req.body;
+
+    console.log('🔐 Reset Password Request Received');
+    console.log('Token:', token ? token.substring(0, 10) + '...' : 'MISSING');
+    console.log('New Password Length:', newPassword ? newPassword.length : 'MISSING');
+
+    if (!token || !newPassword) {
+      return res.status(400).json({message: 'Token and new password are required'});
+    }
+
+    try {
+      // Hash the token to compare with stored hash
+      const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+      console.log('🔍 Hashed Token:', hashedToken.substring(0, 10) + '...');
+
+      const user = await User.findOne({
+        resetPasswordToken: hashedToken,
+        resetPasswordExpire: { $gt: Date.now() } // Token not expired
+      });
+
+      if (!user) {
+        console.log('❌ User not found with token or token expired');
+        // Debug: Try to find user with this token (without expiry check)
+        const userDebug = await User.findOne({ resetPasswordToken: hashedToken });
+        if (userDebug) {
+          console.log('⚠️ User found but token might be expired. Expiry:', userDebug.resetPasswordExpire);
+        }
+        return res.status(400).json({message: 'Invalid or expired reset token'});
+      }
+
+      console.log('✓ User found:', user.email);
+
+      // Set new password - pre-hook in User.js will handle hashing
+      user.password = newPassword;  // DON'T hash manually - let pre-hook do it
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+
+      await user.save();  // Pre-hook triggers and hashes password once
+
+      console.log('✅ Password reset successfully for:', user.email);
+      res.status(200).json({message: 'Password reset successfully'});
+    } catch (error) {
+      console.error('❌ Reset Password error:', error);
+      return res.status(500).json({message: 'Failed to reset password', error: error.message});
     }
   },
 };

@@ -80,7 +80,10 @@ exports.addVersion = async (req, res) => {
     });
     log.log_history.push(version._id);
     await log.save();
-    res.json(version);
+    res.status(201).json({
+      message: "Version added",
+      version,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -183,15 +186,76 @@ exports.deleteCollaborator = async (req, res) => {
 };
 
 
+// Search & Filter worklogs dengan query parameters (Division-aware)
 exports.filterWorkLogs = async (req, res) => {
-  const { from, to, tag } = req.query;
-  let filter = {};
+  try {
+    const { search, tag, from, to } = req.query;
+    
+    // Get user division from JWT token (already authenticated via protect middleware)
+    const userDivision = req.user?.division;
+    
+    if (!userDivision) {
+      console.warn('⚠️ filterWorkLogs - No user division found!');
+    }
+    
+    // Build filter untuk DB query (tanpa user.division dulu karena reference)
+    let filter = {};
 
-  if (from && to) filter.datetime = { $gte: new Date(from), $lte: new Date(to) };
-  if (tag) filter.tag = { $in: tag.split(",") };
+    // Search by title, content
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { content: { $regex: search, $options: 'i' } }
+      ];
+    }
 
-  const logs = await WorkLog.find(filter)
-    .populate("user", "name division")
-    .populate("collaborators", "name");
-  res.json(logs);
+    // Filter by tags (dapat comma-separated atau array)
+    if (tag) {
+      const tags = Array.isArray(tag) ? tag : tag.split(",").map(t => t.trim());
+      filter.tag = { $in: tags };
+    }
+
+    // Filter by date range
+    if (from && to) {
+      filter.datetime = { $gte: new Date(from), $lte: new Date(to) };
+    } else if (from) {
+      filter.datetime = { $gte: new Date(from) };
+    } else if (to) {
+      filter.datetime = { $lte: new Date(to) };
+    }
+
+    // Query database tanpa division filter
+    let logs = await WorkLog.find(filter)
+      .populate("user", "name email division profile_photo profilePicture dateOfJoin")
+      .populate("collaborators", "name email division")
+      .sort({ datetime: -1 });
+
+
+    // ✅ AFTER populate: Filter by user division (Frontend-like filtering at backend)
+    // This ensures we only return worklogs from same division as logged-in user
+    logs = logs.filter(log => log.user?.division === userDivision);
+
+
+    res.json({ worklogs: logs });
+  } catch (error) {
+    console.error('❌ filterWorkLogs error:', error.message);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// GET detail worklog by ID
+exports.getWorkLogById = async (req, res) => {
+  try {
+    const worklog = await WorkLog.findById(req.params.id)
+      .populate("user", "name email division profile_photo profilePicture dateOfJoin join_date")
+      .populate("collaborators", "name email division");
+    
+    if (!worklog) {
+      return res.status(404).json({ message: "WorkLog not found" });
+    }
+    
+    res.json(worklog);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
