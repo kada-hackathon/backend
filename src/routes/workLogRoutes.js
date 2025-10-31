@@ -1,4 +1,4 @@
-const express = require("express");
+  const express = require("express");
 const router = express.Router();
 const {
   addWorkLog,
@@ -10,14 +10,12 @@ const {
   getCollaborators,
   deleteCollaborator,
   filterWorkLogs,
-  getAllWorkLogs,
   getWorkLogById,
 } = require("../controllers/workLogController");
 const { protect } = require("../middlewares/authMiddleware");
 
 // Worklog Routes
 router.get("/filter", protect, filterWorkLogs);  // GET filter worklogs (MUST BE BEFORE /:id)
-router.get("/", protect, getAllWorkLogs);  // GET semua worklogs
 router.get("/:id", protect, getWorkLogById);  // GET detail worklog by ID
 router.post("/", protect, addWorkLog);
 router.put("/:id", protect, editWorkLog);
