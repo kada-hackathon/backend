@@ -8,7 +8,13 @@ const workLogSchema = new mongoose.Schema({
   collaborators: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   datetime: { type: Date, default: Date.now },
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  log_history: [{ type: mongoose.Schema.Types.ObjectId, ref: "LogHistory" }]
+  log_history: [{ type: mongoose.Schema.Types.ObjectId, ref: "LogHistory" }],
+  embedding: {
+    type: [Number],
+    select: false // Don't return by default
+  }
 });
+
+workLogSchema.index({ title: 'text', content: 'text' });
 
 module.exports = mongoose.model("WorkLog", workLogSchema);

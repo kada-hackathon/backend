@@ -5,6 +5,7 @@ const authRoutes = require('./src/routes/authRoutes');
 const adminRoutes = require('./src/routes/adminRoutes');
 const worklogRoutes = require('./src/routes/worklogRoutes');
 const setupSwagger = require('./src/swagger/swagger');
+const chatBotRoutes = require('./src/routes/chatbotRoutes');
 
 const app = express();
 
@@ -38,5 +39,6 @@ app.use('/api/worklogs', worklogRoutes);
 
 // Setup Swagger Docs
 setupSwagger(app);
+app.use('/api/chatbot', chatBotRoutes);
 
 module.exports = app;
