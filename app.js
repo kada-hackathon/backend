@@ -1,10 +1,10 @@
 // Express app factory (no server listen here) - used by tests and index.js
 const express = require('express');
 const cors = require("cors");
+const setupSwagger = require('./src/swagger/swagger');
 const authRoutes = require('./src/routes/authRoutes');
 const adminRoutes = require('./src/routes/adminRoutes');
-const worklogRoutes = require('./src/routes/worklogRoutes');
-const setupSwagger = require('./src/swagger/swagger');
+const worklogRoutes = require('./src/routes/workLogRoutes');
 const chatBotRoutes = require('./src/routes/chatbotRoutes');
 
 const app = express();
