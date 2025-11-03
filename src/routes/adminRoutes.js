@@ -7,11 +7,12 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
-const { protect } = require('../middlewares/authMiddleware');
+const { protect, isAdmin } = require('../middlewares/authMiddleware');
 
-router.post('/employees', adminController.addEmployee);
-router.put('/employees/:id', adminController.editEmployee);
-router.delete('/employees/:id', adminController.deleteEmployee);
-router.get('/employees', protect, adminController.getEmployees);
+router.post('/employees', protect, isAdmin, adminController.addEmployee);
+// router.post('/employees', adminController.addEmployee);
+router.put('/employees/:id', protect, isAdmin, adminController.editEmployee);
+router.delete('/employees/:id', protect, isAdmin, adminController.deleteEmployee);
+router.get('/employees', protect, isAdmin, adminController.getEmployees);
 
 module.exports = router;
