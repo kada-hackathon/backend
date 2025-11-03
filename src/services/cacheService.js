@@ -82,19 +82,16 @@ class CacheService {
         // Step 2: Check cache first (fastest path)
         const cached = this.embeddingCache.get(cacheKey);
         if (cached) {
-            console.log('✓ Embedding cache HIT');
             return cached; // Return in ~5ms!
         }
 
         // Step 3: Check if someone else is already generating this
         // Prevents duplicate API calls when multiple users ask same question
         if (this.inFlightRequests.has(`emb_${cacheKey}`)) {
-            console.log('⏳ Waiting for in-flight embedding request...');
             return await this.inFlightRequests.get(`emb_${cacheKey}`);
         }
 
         // Step 4: Generate new embedding (slow: 1500-2000ms)
-        console.log('✗ Embedding cache MISS - generating...');
         
         // Create promise and store it for other requests to wait on
         const promise = generateFn(text)
@@ -157,18 +154,15 @@ class CacheService {
         // Step 2: Check cache first
         const cached = this.searchCache.get(cacheKey);
         if (cached) {
-            console.log('✓ Search cache HIT');
             return cached; // Return in ~10ms!
         }
 
         // Step 3: Check if same search is already running
         if (this.inFlightRequests.has(`search_${cacheKey}`)) {
-            console.log('⏳ Waiting for in-flight search request...');
             return await this.inFlightRequests.get(`search_${cacheKey}`);
         }
 
         // Step 4: Execute search (slow: 200-300ms)
-        console.log('✗ Search cache MISS - searching...');
         
         const promise = searchFn()
             .then(results => {
@@ -302,9 +296,8 @@ class CacheService {
      */
     clearAll() {
         this.embeddingCache.flushAll();
-        this.searchCache.flushAll();
+        this.searchCache.clear();
         this.inFlightRequests.clear();
-        console.log('All caches cleared');
     }
 
     /**

@@ -90,8 +90,6 @@ class ChatbotService {
      */
     async searchWorkLogs(queryEmbedding, limit = 7) { // Sweet spot: 7 logs
         try {
-            console.log('Starting vector search across ALL worklogs...');
-
             const results = await WorkLog.aggregate([
                 {
                     $vectorSearch: {
@@ -142,7 +140,6 @@ class ChatbotService {
                 }
             ]);
 
-            console.log(`Vector search returned ${results.length} results`);
             return results;
 
         } catch (error) {
@@ -181,8 +178,6 @@ class ChatbotService {
      * ================================================================
      */
     async fallbackSearch(limit = 7) {
-        console.log('Using fallback search...');
-        
         const results = await WorkLog.find({})
             .populate('user', 'name division')
             .limit(limit)
@@ -420,15 +415,7 @@ Answer the question thoroughly using these logs.`;
      * ================================================================
      */
     logSearchResults(workLogs) {
-        if (workLogs.length > 0) {
-            console.log('Top results:');
-            workLogs.forEach((log, idx) => {
-                const score = log.score?.toFixed(4) || 'N/A';
-                const author = log.userName || 'Unknown';
-                const contentLength = log.content?.length || 0;
-                console.log(`  ${idx + 1}. ${log.title} by ${author} - Score: ${score} (${contentLength} chars)`);
-            });
-        }
+        // Results logged for debugging if needed
     }
 }
 

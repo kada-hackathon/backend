@@ -29,7 +29,6 @@ async function generateEmbedding(text) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('API Error Response:', errorText);
       throw new Error(`API Error: ${response.status} - ${errorText}`);
     }
 
@@ -37,7 +36,6 @@ async function generateEmbedding(text) {
     
     // OpenAI-compatible format: { data: [{ embedding: [...] }] }
     if (!data.data || !data.data[0] || !data.data[0].embedding) {
-      console.error('Unexpected API response:', data);
       throw new Error('Invalid embedding format from API');
     }
 
@@ -47,11 +45,9 @@ async function generateEmbedding(text) {
       throw new Error('Embedding is not an array');
     }
 
-    console.log(`✓ Generated embedding with ${embedding.length} dimensions`);
     return embedding;
     
   } catch (error) {
-    console.error('Embedding generation error:', error.message);
     throw error;
   }
 }
