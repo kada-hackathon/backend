@@ -212,15 +212,19 @@ exports.deleteCollaborator = async (req, res) => {
 };
 
 
-// Search & Filter worklogs dengan query parameters (Division-aware)
+// Search & Filter worklogs dengan query parameters (Division-aware + Pagination)
 exports.filterWorkLogs = async (req, res) => {
   try {
-    const { search, tag, from, to } = req.query;
+    const { search, tag, from, to, page = 1, limit = 10 } = req.query;
     
     // Get user division from JWT token (already authenticated via protect middleware)
     const userDivision = req.user?.division;
     
-    // Build filter untuk DB query (tanpa user.division dulu karena reference)
+    if (!userDivision) {
+      console.warn('⚠️ filterWorkLogs - No user division found!');
+    }
+
+    // Build base filter untuk DB query
     let filter = {};
 
     // Search by title, content
@@ -246,19 +250,42 @@ exports.filterWorkLogs = async (req, res) => {
       filter.datetime = { $lte: new Date(to) };
     }
 
-    // Query database tanpa division filter
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Query database tanpa filter divisi dulu
     let logs = await WorkLog.find(filter)
-      .populate("user", "name email division profile_photo profilePicture dateOfJoin")
+      .populate("user", "name email division profile_photo")
       .populate("collaborators", "name email division")
       .sort({ datetime: -1 });
 
-
-    // ✅ AFTER populate: Filter by user division (Frontend-like filtering at backend)
-    // This ensures we only return worklogs from same division as logged-in user
+    // Filter by division after populate
     logs = logs.filter(log => log.user?.division === userDivision);
 
+    // Get total count before pagination
+    const totalDocs = logs.length;
 
-    res.json({ worklogs: logs });
+    // Apply pagination after division filter
+    const startIndex = skip;
+    const endIndex = startIndex + parseInt(limit);
+    logs = logs.slice(startIndex, endIndex);
+
+    // Calculate pagination info
+    const totalPages = Math.ceil(totalDocs / parseInt(limit));
+    const hasNextPage = parseInt(page) < totalPages;
+    const hasPrevPage = parseInt(page) > 1;
+
+    res.json({ 
+      worklogs: logs,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages,
+        totalDocs,
+        hasNextPage,
+        hasPrevPage,
+        limit: parseInt(limit)
+      }
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -268,7 +295,7 @@ exports.filterWorkLogs = async (req, res) => {
 exports.getWorkLogById = async (req, res) => {
   try {
     const worklog = await WorkLog.findById(req.params.id)
-      .populate("user", "name email division profile_photo profilePicture dateOfJoin join_date")
+      .populate("user", "name email division profile_photo join_date")
       .populate("collaborators", "name email division");
     
     if (!worklog) {
