@@ -237,9 +237,14 @@ exports.filterWorkLogs = async (req, res) => {
 
     // Filter by tags (dapat comma-separated atau array)
     if (tag) {
-      const tags = Array.isArray(tag) ? tag : tag.split(",").map(t => t.trim());
-      filter.tag = { $in: tags };
+      const tags = Array.isArray(tag) ? tag : tag.split(",").map(t => t.trim().replace(/^#+/, '').toLowerCase());
+      filter.$or = [
+        { tag: { $in: tags } }, // Exact match (case insensitive)
+        { tag: { $in: tags.map(t => new RegExp(t, 'i')) } } // Partial match (case insensitive)
+      ];
     }
+    
+   
 
     // Filter by date range
     if (from && to) {
@@ -253,16 +258,20 @@ exports.filterWorkLogs = async (req, res) => {
     // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
-    // Query database tanpa filter divisi dulu
+    // Query database with all filters
     let logs = await WorkLog.find(filter)
-      .populate("user", "name email division profile_photo")
+      .populate({
+        path: "user",
+        match: { division: userDivision }, // Filter by division during population
+        select: "name email division profile_photo"
+      })
       .populate("collaborators", "name email division")
       .sort({ datetime: -1 });
 
-    // Filter by division after populate
-    logs = logs.filter(log => log.user?.division === userDivision);
+    // Remove entries where user population returned null (different division)
+    logs = logs.filter(log => log.user !== null);
 
-    // Get total count before pagination
+    // Get total count for pagination
     const totalDocs = logs.length;
 
     // Apply pagination after division filter
