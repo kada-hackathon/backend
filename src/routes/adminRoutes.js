@@ -13,6 +13,6 @@ router.post('/employees', protect, isAdmin, adminController.addEmployee);
 // router.post('/employees', adminController.addEmployee);
 router.put('/employees/:id', protect, isAdmin, adminController.editEmployee);
 router.delete('/employees/:id', protect, isAdmin, adminController.deleteEmployee);
-router.get('/employees', protect, isAdmin, adminController.getEmployees);
+router.get('/employees', protect, adminController.getEmployees);
 
 module.exports = router;
