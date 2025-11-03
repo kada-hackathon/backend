@@ -2,16 +2,28 @@ const WorkLog = require("../models/WorkLog");
 const LogHistory = require("../models/LogHistory");
 const User = require("../models/User");
 const { generateEmbedding, prepareTextForEmbedding } = require("../services/embeddingService");
+const { processMediaUploads, extractMediaUrls, deleteFromSpaces } = require("../services/mediaService");
 
 exports.addWorkLog = async (req, res) => {
   try {
     const { title, content, tag, media } = req.body;
 
-    const textToEmbed = prepareTextForEmbedding({ title, content, tag });
+    // 🔥 Process uploads:
+    // - Inline images in content (base64 → URL)
+    // - Media attachments that are still base64 (fallback for legacy/special cases)
+    // - Media with URLs (already uploaded) → keep as-is
+    const { processedContent, processedMedia } = await processMediaUploads(content, media);
+
+    const textToEmbed = prepareTextForEmbedding({ title, content: processedContent, tag });
     const embedding = await generateEmbedding(textToEmbed);
 
     const log = await WorkLog.create({
-      title, content, tag, media, user: req.user._id, embedding
+      title, 
+      content: processedContent, 
+      tag, 
+      media: processedMedia, 
+      user: req.user._id, 
+      embedding
     });
     res.status(201).json(log);
   } catch (error) {
@@ -24,20 +36,31 @@ exports.editWorkLog = async (req, res) => {
     const log = await WorkLog.findById(req.params.id);
     if (!log) return res.status(404).json({ message: "Not found" });
 
+    // 🔥 Process any new base64 uploads in edited content
+    const { processedContent, processedMedia } = await processMediaUploads(
+      req.body.content || log.content,
+      req.body.media || log.media
+    );
+
     // Regenerate embedding with updated content
     const textToEmbed = prepareTextForEmbedding({
       title: req.body.title || log.title,
-      content: req.body.content || log.content,
+      content: processedContent,
       tag: req.body.tag || log.tag
     });
     const embedding = await generateEmbedding(textToEmbed);
 
     const updated = await WorkLog.findByIdAndUpdate(
       req.params.id,
-      { ...req.body, embedding },
+      { 
+        ...req.body, 
+        content: processedContent,
+        media: processedMedia,
+        embedding 
+      },
       { new: true }
     );
-    // Simpan versi lama
+    
     await LogHistory.create({
       message: `Edited post: ${log.title}`,
       user: req.user._id
@@ -56,10 +79,13 @@ exports.deleteWorkLog = async (req, res) => {
       return res.status(404).json({ message: "WorkLog not found" });
     }
 
-    // Hanya pemilik yang bisa hapus
     if (worklog.user.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "You are not allowed to delete this worklog" });
     }
+
+    // 🔥 Delete all associated media from DO Spaces
+    const mediaUrls = extractMediaUrls(worklog.content, worklog.media);
+    await Promise.all(mediaUrls.map(url => deleteFromSpaces(url)));
 
     await worklog.deleteOne();
     res.status(200).json({ message: "WorkLog deleted successfully" });
@@ -261,7 +287,6 @@ exports.filterWorkLogs = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('❌ filterWorkLogs error:', error.message);
     res.status(500).json({ message: error.message });
   }
 };

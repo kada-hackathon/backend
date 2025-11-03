@@ -137,16 +137,6 @@ class AIService {
 
         // Estimate token counts for monitoring
         // Why? Helps us understand costs and performance
-        const systemTokens = Math.ceil(systemPrompt.length / 4);
-        const userTokens = Math.ceil(userMessage.length / 4);
-        const totalInputTokens = systemTokens + userTokens;
-        
-        console.log('📊 Token Analysis:');
-        console.log(`  Input tokens: ~${totalInputTokens}`);
-        console.log(`  Max output: ${payload.max_tokens} tokens`);
-        // Rough estimate: input is fast (0.8ms/token), output is slow (8ms/token)
-        console.log(`  Estimated time: ${Math.round(totalInputTokens * 0.8 + payload.max_tokens * 8)}ms`);
-        
         const startTime = Date.now();
         
         try {
@@ -168,7 +158,6 @@ class AIService {
             // Check HTTP status
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error(`AI API Error: ${response.status} - ${errorText}`);
                 throw new Error(`AI service unavailable: ${response.status}`);
             }
 
@@ -192,14 +181,6 @@ class AIService {
             const duration = Date.now() - startTime;
             this.requestTimes.push(duration);
             if (this.requestTimes.length > 100) this.requestTimes.shift(); // Keep only last 100
-            
-            // Calculate processing speed
-            const tokensPerMs = totalInputTokens / duration;
-            console.log(`✓ AI Response completed:`);
-            console.log(`  Duration: ${duration}ms`);
-            console.log(`  Response: ${aiAnswer.length} chars (~${Math.ceil(aiAnswer.length / 4)} tokens)`);
-            console.log(`  Speed: ${tokensPerMs.toFixed(2)} tokens/ms`);
-            console.log(`  Avg time: ${this.getAverageResponseTime()}ms`);
             
             return aiAnswer;
 
