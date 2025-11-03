@@ -64,7 +64,6 @@ module.exports = {
         }
       });
     } catch (error) {
-      console.error('Add Employee error:', error);
       return res.status(500).json({
         status: 'error',
         code: 'SERVER_ERROR',
@@ -119,7 +118,6 @@ module.exports = {
         }
       });
     } catch (error) {
-      console.error('Edit Employee error:', error);
       return res.status(500).json({
         status: 'error',
         code: 'SERVER_ERROR',
@@ -147,7 +145,6 @@ module.exports = {
         message: 'Employee deleted successfully'
       });
     } catch (error) {
-      console.error('Delete Employee error:', error);
       return res.status(500).json({
         status: 'error',
         code: 'SERVER_ERROR',
@@ -182,7 +179,6 @@ module.exports = {
         }
       });
     } catch (error) {
-      console.error('Get Employees error:', error);
       return res.status(500).json({
         status: 'error',
         code: 'SERVER_ERROR',

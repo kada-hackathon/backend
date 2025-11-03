@@ -143,11 +143,9 @@ exports.postMessageChatbot = async (req, res) => {
         // - Same question = same embedding (deterministic)
         // - Expensive API call (1500-2000ms, costs money)
         // - High hit rate for common questions
-        console.log('⏱️ [1/3] Getting embedding...');
         const embeddingStart = Date.now();
         const queryEmbedding = await cacheService.getEmbedding(message, generateEmbedding);
         const embeddingTime = Date.now() - embeddingStart;
-        console.log(`✓ Embedding: ${embeddingTime}ms`);
 
         // ============================================================
         // PHASE 2: VECTOR SEARCH WORKLOGS
@@ -169,7 +167,6 @@ exports.postMessageChatbot = async (req, res) => {
         // - Balance: More context = better answers BUT slower AI
         // - 3 logs = ~1800 chars = ~450 tokens
         // - Enough for comprehensive answers without excessive delay
-        console.log('⏱️ [2/3] Searching worklogs...');
         const searchStart = Date.now();
         
         const relevantLogs = await cacheService.getSearchResults(
@@ -178,7 +175,6 @@ exports.postMessageChatbot = async (req, res) => {
         );
 
         const searchTime = Date.now() - searchStart;
-        console.log(`✓ Search: ${searchTime}ms (${relevantLogs.length} logs)`);
 
         // Log results for debugging and monitoring
         chatbotService.logSearchResults(relevantLogs);
@@ -218,8 +214,6 @@ exports.postMessageChatbot = async (req, res) => {
         // - Input processing: ~1ms per token × 450 = 450ms
         // - Output generation: ~10ms per token × 450 = 4500ms
         // - Total: 5150-5350ms (matches observed ~5000ms)
-        console.log('⏱️ [3/3] Calling AI...');
-        console.log(`📝 Context: ${context.length} chars (~${Math.ceil(context.length / 4)} tokens)`);
 
         const systemPrompt = chatbotService.generateSystemPrompt(context);
         const aiStart = Date.now();
@@ -235,15 +229,6 @@ exports.postMessageChatbot = async (req, res) => {
         // - Justify optimization efforts with data
         // - SLA compliance (are we meeting performance targets?)
         const totalTime = Date.now() - startTime;
-
-        const embeddingPercent = ((embeddingTime / totalTime) * 100).toFixed(1);
-        const searchPercent = ((searchTime / totalTime) * 100).toFixed(1);
-        const aiPercent = ((aiTime / totalTime) * 100).toFixed(1);
-
-        console.log(`✅ Complete: ${totalTime}ms breakdown:`);
-        console.log(`   Embedding: ${embeddingTime}ms (${embeddingPercent}%)`);
-        console.log(`   Search: ${searchTime}ms (${searchPercent}%)`);
-        console.log(`   AI: ${aiTime}ms (${aiPercent}%)`);
 
         // ============================================================
         // SEND RESPONSE TO USER
@@ -306,7 +291,9 @@ exports.postMessageChatbot = async (req, res) => {
             message: message,
             response: aiAnswer,
             context_used: relevantLogs.length
-        }).catch(err => console.error('❌ Background save error:', err));
+        }).catch(err => {
+            // Silent fail for background save
+        });
 
     } catch (error) {
         // ============================================================
@@ -326,7 +313,6 @@ exports.postMessageChatbot = async (req, res) => {
         // - Log to monitoring service (Sentry, DataDog)
         // - Alert on high error rates
         // - Categorize errors (user error vs system error)
-        console.error("❌ Chatbot error:", error.message);
         return res.status(500).json({
             error: "Something went wrong",
             details: error.message // TODO: Remove in production
@@ -420,9 +406,6 @@ exports.getMessagesChatbot = async (req, res) => {
         });
 
     } catch (error) {
-        // Log error for debugging
-        console.error("Error:", error.message);
-        
         // Return generic error to client
         // Don't expose database details for security
         return res.status(500).json({ error: "An error occurred" });

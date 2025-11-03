@@ -45,20 +45,15 @@ module.exports = {
       const user = await User.findOne({email});
       
       if (!user) {
-        console.log('❌ User not found:', email);
         return res.status(401).json({message :"Your password or email is incorrect!"});
       }
 
       // compare hashed password
       const isMatch = await bcrypt.compare(password, user.password);
       
-      
       if(!isMatch){
-        
         return res.status(401).json({message :"Your password or email is incorrect!"});
       }
-
-      
 
       res.status(200).json({
         message: 'Login successful',
@@ -75,7 +70,6 @@ module.exports = {
       });
       
     } catch (error) {
-      console.error('❌ Login error:', error);
       return res.status(500).json({message: 'Internal server error'});
     }
   },
@@ -89,8 +83,6 @@ module.exports = {
     // POST /api/auth/forgot-password - Email verification
     const { email } = req.body;
 
-    console.log('📧 Forgot Password Request for:', email);
-
     if(!email){
       return res.status(400).json({message: 'Please provide an email'});
     }
@@ -99,11 +91,8 @@ module.exports = {
     try {
       user = await User.findOne({email});
       if(!user){
-        console.log('❌ User not found:', email);
         return res.status(404).json({message: 'User not found with this email'});
       }
-
-      console.log('✓ User found:', email);
 
       const resetToken = crypto.randomBytes(20).toString('hex');
       user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
@@ -117,17 +106,12 @@ module.exports = {
 
       // Only send email when not explicitly disabled (useful for test env)
       if (process.env.DISABLE_EMAIL !== 'true' && process.env.NODE_ENV !== 'test') {
-        console.log('📤 Sending email to:', email);
         await transporter.sendMail({
           to: user.email,
           from: process.env.EMAIL_USER,
           subject: 'Password Reset Request',
           text: message
         });
-        
-      } else {
-        console.log('⚠️ Email sending disabled (DISABLE_EMAIL or NODE_ENV=test)');
-        console.log('📋 Reset URL would be:', resetUrl);
       }
 
       res.status(200).json({message: 'Email sent successfully'});
@@ -138,7 +122,6 @@ module.exports = {
         await user.save();
       }
 
-      console.error('Forgot password error details:', error);
       return res.status(500).json({message: 'Failed to process password reset', error: error.message});
     }
   },
@@ -170,7 +153,6 @@ module.exports = {
         }
       });
     } catch (error) {
-      console.error('Get Profile error:', error);
       return res.status(500).json({message: 'Internal server error'});
     }
   },
@@ -213,17 +195,12 @@ module.exports = {
         }
       });
     } catch (error) {
-      console.error('Update Profile error:', error);
       return res.status(500).json({message: 'Internal server error'});
     }
   },
   resetPassword: async (req, res) => {
     // POST /api/auth/reset-password - Reset password with token
     const { token, newPassword } = req.body;
-
-    console.log('🔐 Reset Password Request Received');
-    console.log('Token:', token ? token.substring(0, 10) + '...' : 'MISSING');
-    console.log('New Password Length:', newPassword ? newPassword.length : 'MISSING');
 
     if (!token || !newPassword) {
       return res.status(400).json({message: 'Token and new password are required'});
@@ -232,7 +209,6 @@ module.exports = {
     try {
       // Hash the token to compare with stored hash
       const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-      console.log('🔍 Hashed Token:', hashedToken.substring(0, 10) + '...');
 
       const user = await User.findOne({
         resetPasswordToken: hashedToken,
@@ -240,16 +216,8 @@ module.exports = {
       });
 
       if (!user) {
-        console.log('❌ User not found with token or token expired');
-        // Debug: Try to find user with this token (without expiry check)
-        const userDebug = await User.findOne({ resetPasswordToken: hashedToken });
-        if (userDebug) {
-          console.log('⚠️ User found but token might be expired. Expiry:', userDebug.resetPasswordExpire);
-        }
         return res.status(400).json({message: 'Invalid or expired reset token'});
       }
-
-      console.log('✓ User found:', user.email);
 
       // Set new password - pre-hook in User.js will handle hashing
       user.password = newPassword;  // DON'T hash manually - let pre-hook do it
@@ -258,10 +226,8 @@ module.exports = {
 
       await user.save();  // Pre-hook triggers and hashes password once
 
-      console.log('✅ Password reset successfully for:', user.email);
       res.status(200).json({message: 'Password reset successfully'});
     } catch (error) {
-      console.error('❌ Reset Password error:', error);
       return res.status(500).json({message: 'Failed to reset password', error: error.message});
     }
   },
