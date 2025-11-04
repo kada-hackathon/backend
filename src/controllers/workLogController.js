@@ -219,7 +219,7 @@ exports.filterWorkLogs = async (req, res) => {
     logs = logs.filter(log => log.user?.division === userDivision);
 
 
-    res.json({ worklogs: logs });
+    res.json(logs);
   } catch (error) {
     console.error('❌ filterWorkLogs error:', error.message);
     res.status(500).json({ message: error.message });

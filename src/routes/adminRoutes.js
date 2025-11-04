@@ -12,6 +12,6 @@ const { protect } = require('../middlewares/authMiddleware');
 router.post('/employees', adminController.addEmployee);
 router.put('/employees/:id', adminController.editEmployee);
 router.delete('/employees/:id', adminController.deleteEmployee);
-router.get('/employees', protect, adminController.getEmployees);
+router.get('/employees', adminController.getEmployees);
 
 module.exports = router;
