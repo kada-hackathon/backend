@@ -1,19 +1,21 @@
 # 🚀 NEBWORK API - Complete Frontend Integration Guide
 
 **Base URL:** `http://localhost:5000`  
-**Version:** 1.0.0  
-**Last Updated:** November 3, 2025
+**WebSocket URL:** `ws://localhost:1234`  
+**Version:** 1.1.0  
+**Last Updated:** November 4, 2025
 
 ---
 
 ## 📋 Table of Contents
 1. [Authentication](#1-authentication)
 2. [Work Logs](#2-work-logs)
-3. [File Uploads](#3-file-uploads)
-4. [Admin (Employee Management)](#4-admin-employee-management)
-5. [Chatbot](#5-chatbot-ai-assistant)
-6. [Error Handling](#6-error-handling)
-7. [Best Practices](#7-best-practices)
+3. [Real-time Collaboration](#3-real-time-collaboration-websocket)
+4. [File Uploads](#4-file-uploads)
+5. [Admin (Employee Management)](#5-admin-employee-management)
+6. [Chatbot](#6-chatbot-ai-assistant)
+7. [Error Handling](#7-error-handling)
+8. [Best Practices](#8-best-practices)
 
 ---
 
@@ -680,9 +682,9 @@ async function createWorkLog({ title, content, tag, media }) {
 
 ---
 
-## 📤 3. File Uploads
+## 📤 4. File Uploads
 
-### 3.1 Upload Single File
+### 4.1 Upload Single File
 
 **Endpoint:** `POST /api/upload`
 
@@ -790,7 +792,7 @@ async function uploadFile(file) {
 
 ---
 
-### 3.2 Upload Multiple Files
+### 4.2 Upload Multiple Files
 
 **Endpoint:** `POST /api/upload/multiple`
 
@@ -863,7 +865,7 @@ const handleMultipleUpload = async (event) => {
 
 ---
 
-### 3.3 Delete File
+### 4.3 Delete File
 
 **Endpoint:** `DELETE /api/upload`
 
@@ -892,7 +894,7 @@ const handleMultipleUpload = async (event) => {
 
 ---
 
-### 3.4 Delete Multiple Files
+### 4.4 Delete Multiple Files
 
 **Endpoint:** `DELETE /api/upload/multiple`
 
@@ -921,7 +923,918 @@ const handleMultipleUpload = async (event) => {
 
 ---
 
-## 👥 4. Admin (Employee Management)
+## 🔄 3. Real-time Collaboration (WebSocket)
+
+### 3.1 Overview
+
+NEBWORK supports **invite-only** real-time collaborative editing using **Hocuspocus** WebSocket server with Tiptap editor. Multiple users can edit the same work log simultaneously with automatic conflict resolution via CRDT (Yjs).
+
+**WebSocket URL:** `ws://localhost:1234`  
+**Production URL:** `wss://your-domain.com` (configure in production)
+
+**Key Features:**
+- ✅ **Invite-only editing** - Only owner + explicitly invited collaborators
+- ✅ Real-time collaborative editing with cursor tracking
+- ✅ Automatic conflict resolution (CRDT via Yjs)
+- ✅ JWT authentication on every connection
+- ✅ Automatic document persistence to MongoDB (debounced 2-10s)
+- ✅ Active users tracking
+- ✅ Session cleanup on disconnect
+
+**Access Control:**
+- **Owner** - Full edit access (creator of worklog)
+- **Invited Collaborators** - Can edit via WebSocket (all invited users have edit access)
+- **Division Members** - Can view via REST API only (read-only)
+- ❌ **Others** - Connection rejected (403 Forbidden)
+
+---
+
+### 3.2 REST API: Collaboration Management
+
+Before using WebSocket, you need to manage collaborators via REST API.
+
+#### Add Collaborator
+**POST** `/api/worklogs/:id/collaborators`
+
+```json
+{
+  "email": "colleague@company.com"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Collaborator added successfully",
+  "log": { ...worklog }
+}
+```
+
+**Authorization:** Only the worklog owner can add collaborators.
+
+**Note:** All invited collaborators automatically receive edit access.
+
+---
+
+#### Get Active Editors Status
+**GET** `/api/worklogs/:id/collaboration/status`
+
+**Response:**
+```json
+{
+  "worklogId": "675a1b2c3d4e5f6g7h8i9j0k",
+  "title": "Q4 Strategy Planning",
+  "activeUsers": [
+    {
+      "userId": { "name": "Alice", "email": "alice@company.com" },
+      "socketId": "abc123",
+      "connectedAt": "2025-11-04T10:30:00.000Z"
+    }
+  ],
+  "totalActive": 1
+}
+```
+
+**Authorization:** Owner and collaborators only.
+
+---
+
+### 3.3 WebSocket Connection
+
+**Connection requires JWT token** from `/api/auth/login`
+
+**Using HocuspocusProvider (Recommended):**
+
+```javascript
+import { HocuspocusProvider } from '@hocuspocus/provider';
+import * as Y from 'yjs';
+
+const ydoc = new Y.Doc();
+const token = localStorage.getItem('token');
+const worklogId = '671b1f3f2c8d7b8a8c4b1234';
+
+const provider = new HocuspocusProvider({
+  url: 'ws://localhost:1234',  // WebSocket server URL
+  name: worklogId,              // Document name = WorkLog _id
+  document: ydoc,               // Yjs document
+  token: token,                 // JWT token
+  
+  onAuthenticated() {
+    console.log('✅ Connected to collaborative session');
+  },
+  
+  onAuthenticationFailed({ reason }) {
+    console.error('❌ Auth failed:', reason);
+    if (reason.includes('invite')) {
+      alert('You must be invited as a collaborator to edit this document');
+    } else {
+      alert('Authentication failed: ' + reason);
+    }
+  },
+  
+  onStatus({ status }) {
+    console.log('Connection status:', status); // 'connected' | 'disconnected'
+  },
+  
+  onSynced() {
+    console.log('✅ Document synced from server');
+  }
+});
+```
+
+**⚠️ Important Notes:**
+- Document name MUST be the WorkLog `_id` (MongoDB ObjectId as string)
+- Token is passed in the connection (Hocuspocus handles this internally)
+- Server runs on port `1234` by default (configurable via `COLLAB_PORT`)
+
+---
+
+### 3.4 Tiptap + Hocuspocus Integration
+
+**Install Dependencies:**
+```bash
+npm install @tiptap/react @tiptap/starter-kit @tiptap/extension-collaboration @tiptap/extension-collaboration-cursor @hocuspocus/provider yjs
+```
+
+**React Implementation:**
+```jsx
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Collaboration from '@tiptap/extension-collaboration';
+import CollaborationCursor from '@tiptap/extension-collaboration-cursor';
+import { HocuspocusProvider } from '@hocuspocus/provider';
+import * as Y from 'yjs';
+import { useEffect, useState } from 'react';
+
+function CollaborativeEditor({ worklogId, user, token }) {
+  const [provider, setProvider] = useState(null);
+  const [status, setStatus] = useState('connecting');
+  
+  useEffect(() => {
+    // Create Yjs document
+    const ydoc = new Y.Doc();
+    
+    // Setup Hocuspocus provider
+    const hocuspocusProvider = new HocuspocusProvider({
+      url: 'ws://localhost:1234',
+      name: worklogId,
+      document: ydoc,
+      token: token,
+      
+      onConnect: () => {
+        console.log('✅ Connected to collaboration server');
+        setStatus('connected');
+      },
+      
+      onDisconnect: () => {
+        console.log('🔌 Disconnected from collaboration server');
+        setStatus('disconnected');
+      },
+      
+      onAuthenticationFailed: ({ reason }) => {
+        console.error('❌ Authentication failed:', reason);
+        setStatus('auth-failed');
+      },
+      
+      onSynced: () => {
+        console.log('📄 Document synced');
+        setStatus('synced');
+      },
+      
+      onStatus: ({ status }) => {
+        console.log('Status changed:', status);
+      }
+    });
+    
+    setProvider(hocuspocusProvider);
+    
+    // Cleanup on unmount
+    return () => {
+      hocuspocusProvider.destroy();
+    };
+  }, [worklogId, token]);
+  
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        history: false, // Disable local history (Yjs provides this)
+      }),
+      
+      // Enable real-time collaboration
+      Collaboration.configure({
+        document: provider?.document,
+      }),
+      
+      // Show cursors of other users
+      CollaborationCursor.configure({
+        provider: provider,
+        user: {
+          name: user.name,
+          color: getRandomColor(), // Helper function for cursor color
+        },
+      }),
+    ],
+    
+    editable: true,
+    content: '', // Will be loaded from Yjs document
+  });
+  
+  return (
+    <div>
+      <div className="editor-status">
+        Status: <span className={status}>{status}</span>
+      </div>
+      
+      <EditorContent editor={editor} />
+      
+      {provider && (
+        <div className="active-users">
+          Active users: {provider.awareness.getStates().size}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Helper function for random cursor colors
+function getRandomColor() {
+  const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#6c5ce7'];
+  return colors[Math.floor(Math.random() * colors.length)];
+}
+
+export default CollaborativeEditor;
+```
+
+---
+
+### 3.5 Access Control & Permissions
+
+**Who can connect via WebSocket:**
+
+1. ✅ **Owner** - User who created the work log (full edit access)
+2. ✅ **Invited Collaborators** - All invited users have edit access
+3. ❌ **Division Members** - Can view via REST API only (read-only)
+4. ❌ **Others** - Connection rejected with authentication error
+
+**Check Access Before Connecting:**
+```javascript
+async function canEditWorklog(worklogId) {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`http://localhost:5000/api/worklogs/${worklogId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    const worklog = await response.json();
+    const currentUserId = getCurrentUserId(); // Get from your auth state
+    
+    // Check if owner
+    if (worklog.user._id === currentUserId) {
+      return { canEdit: true, reason: 'owner' };
+    }
+    
+    // Check if collaborator (all invited users can edit)
+    const isCollaborator = worklog.collaborators.some(
+      c => c._id === currentUserId
+    );
+    
+    if (isCollaborator) {
+      return { canEdit: true, reason: 'collaborator' };
+    }
+    
+    return { canEdit: false, reason: 'not-invited' };
+    
+  } catch (error) {
+    console.error('Error checking access:', error);
+    return { canEdit: false, reason: 'error' };
+  }
+}
+
+// Usage
+const { canEdit, reason } = await canEditWorklog(worklogId);
+
+if (!canEdit) {
+  if (reason === 'not-invited') {
+    alert('You must be invited to edit this document');
+  }
+  return; // Don't connect to WebSocket
+}
+
+// Connect to WebSocket for collaborative editing
+const provider = new HocuspocusProvider({ ... });
+```
+
+---
+
+### 3.6 Complete React Example
+
+**Full implementation with error handling and UI:**
+
+```jsx
+import React, { useEffect, useState } from 'react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Collaboration from '@tiptap/extension-collaboration';
+import CollaborationCursor from '@tiptap/extension-collaboration-cursor';
+import { HocuspocusProvider } from '@hocuspocus/provider';
+import * as Y from 'yjs';
+
+function CollaborativeWorklog({ worklogId, currentUser, onError }) {
+  const [provider, setProvider] = useState(null);
+  const [status, setStatus] = useState('connecting');
+  const [activeUsers, setActiveUsers] = useState([]);
+  const [error, setError] = useState(null);
+  
+  useEffect(() => {
+    let hocuspocusProvider = null;
+    
+    async function setupCollaboration() {
+      try {
+        // 1. Check if user has edit access
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:5000/api/worklogs/${worklogId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch worklog');
+        }
+        
+        const worklog = await response.json();
+        
+        // Check permissions
+        const isOwner = worklog.user._id === currentUser.id;
+        const permission = worklog.editPermissions?.find(
+          p => p.userId._id === currentUser.id
+        );
+        const canEdit = isOwner || (permission && permission.canEdit);
+        
+        if (!canEdit) {
+          setError('You have view-only access to this document');
+          setStatus('unauthorized');
+          onError?.('no-edit-access');
+          return;
+        }
+        
+        // 2. Create Yjs document
+        const ydoc = new Y.Doc();
+        
+        // 3. Setup Hocuspocus provider
+        hocuspocusProvider = new HocuspocusProvider({
+          url: process.env.REACT_APP_WS_URL || 'ws://localhost:1234',
+          name: worklogId,
+          document: ydoc,
+          token: token,
+          
+          onAuthenticated() {
+            console.log('✅ Authenticated with collaboration server');
+            setStatus('authenticated');
+          },
+          
+          onAuthenticationFailed({ reason }) {
+            console.error('❌ Authentication failed:', reason);
+            setStatus('auth-failed');
+            
+            if (reason.includes('invite')) {
+              setError('You must be invited as a collaborator');
+            } else if (reason.includes('view-only')) {
+              setError('You have read-only access');
+            } else {
+              setError('Authentication failed: ' + reason);
+            }
+            
+            onError?.('auth-failed', reason);
+          },
+          
+          onConnect() {
+            console.log('✅ Connected to collaboration server');
+            setStatus('connected');
+            setError(null);
+          },
+          
+          onDisconnect() {
+            console.log('🔌 Disconnected');
+            setStatus('disconnected');
+          },
+          
+          onSynced() {
+            console.log('✅ Document synced');
+            setStatus('synced');
+          },
+          
+          onStatus({ status }) {
+            setStatus(status);
+          }
+        });
+        
+        // 4. Track active users
+        hocuspocusProvider.on('awareness', () => {
+          const users = Array.from(hocuspocusProvider.awareness.getStates().values())
+            .map(state => state.user)
+            .filter(Boolean);
+          setActiveUsers(users);
+        });
+        
+        setProvider(hocuspocusProvider);
+        
+      } catch (err) {
+        console.error('Setup error:', err);
+        setError(err.message);
+        setStatus('error');
+        onError?.(err);
+      }
+    }
+    
+    setupCollaboration();
+    
+    // Cleanup
+    return () => {
+      if (hocuspocusProvider) {
+        hocuspocusProvider.destroy();
+      }
+    };
+  }, [worklogId, currentUser, onError]);
+  
+  // Setup TipTap editor
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        history: false, // Yjs handles undo/redo
+      }),
+      Collaboration.configure({
+        document: provider?.document,
+      }),
+      CollaborationCursor.configure({
+        provider: provider,
+        user: {
+          name: currentUser.name,
+          color: getRandomColor(),
+        },
+      }),
+    ],
+    editable: status === 'connected' || status === 'synced',
+  });
+  
+  // Show error state
+  if (error) {
+    return (
+      <div className="error-container">
+        <h3>❌ Cannot Edit Document</h3>
+        <p>{error}</p>
+        <button onClick={() => window.location.reload()}>Reload</button>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="collaborative-editor">
+      {/* Status Bar */}
+      <div className={`status-bar status-${status}`}>
+        <div className="status-indicator">
+          {status === 'connected' && '🟢 Connected'}
+          {status === 'synced' && '✅ Synced'}
+          {status === 'connecting' && '🟡 Connecting...'}
+          {status === 'disconnected' && '🔴 Disconnected'}
+        </div>
+        
+        {/* Active Users */}
+        <div className="active-users">
+          {activeUsers.map((user, idx) => (
+            <div key={idx} className="user-avatar" title={user.name}>
+              {user.name?.charAt(0) || '?'}
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      {/* Editor */}
+      <EditorContent editor={editor} />
+    </div>
+  );
+}
+
+// Helper function
+function getRandomColor() {
+  const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#6c5ce7', '#a29bfe'];
+  return colors[Math.floor(Math.random() * colors.length)];
+}
+
+export default CollaborativeWorklog;
+```
+
+---
+
+### 3.7 Active Users Display
+
+Poll the REST API to show who's currently editing:
+
+```javascript
+import { useEffect, useState } from 'react';
+import axios from 'axios';
+
+function ActiveEditors({ worklogId }) {
+  const [activeUsers, setActiveUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchActiveUsers() {
+      try {
+        const token = localStorage.getItem('token');
+        const { data } = await axios.get(
+          `http://localhost:5000/api/worklogs/${worklogId}/collaboration/status`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setActiveUsers(data.activeUsers);
+        setLoading(false);
+      } catch (error) {
+        console.error('Failed to fetch active users:', error);
+        setLoading(false);
+      }
+    }
+
+    // Fetch immediately
+    fetchActiveUsers();
+    
+    // Poll every 5 seconds
+    const interval = setInterval(fetchActiveUsers, 5000);
+
+    return () => clearInterval(interval);
+  }, [worklogId]);
+
+  if (loading) return <div>Loading...</div>;
+
+  return (
+    <div className="active-editors">
+      <h4>Currently Editing ({activeUsers.length})</h4>
+      {activeUsers.map(user => (
+        <div key={user.socketId} className="editor-item">
+          <img 
+            src={user.userId.profile_photo || '/default-avatar.png'} 
+            alt={user.userId.name}
+            className="avatar"
+          />
+          <div>
+            <div className="name">{user.userId.name}</div>
+            <div className="time">
+              Since {new Date(user.connectedAt).toLocaleTimeString()}
+            </div>
+          </div>
+        </div>
+      ))}
+      {activeUsers.length === 0 && (
+        <p className="empty">No one is editing right now</p>
+      )}
+    </div>
+  );
+}
+
+export default ActiveEditors;
+```
+
+---
+
+### 3.8 Error Handling
+
+**Common Errors and Solutions:**
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `Authentication failed` | Invalid/expired JWT | Re-login to get new token |
+| `Access denied: You must be invited` | User not a collaborator | Owner must add via `/api/worklogs/:id/collaborators` |
+| `Access denied: View-only access` | User has `canEdit: false` | Owner must update permissions |
+| `WorkLog not found` | Invalid worklog ID | Check worklog exists in database |
+| `Connection timeout` | Server down/network issue | Check server status & network |
+| `ECONNREFUSED` | Hocuspocus server not running | Start backend with `npm run dev` |
+
+**Error Handling Example:**
+
+```javascript
+provider.on('authenticationFailed', ({ reason }) => {
+  console.error('Auth failed:', reason);
+  
+  if (reason.includes('invite')) {
+    showNotification('error', 'You need to be invited to edit this document');
+    // Redirect to view-only mode or dashboard
+  } else if (reason.includes('view-only')) {
+    showNotification('warning', 'You have read-only access');
+    // Switch to view-only UI
+  } else if (reason.includes('token')) {
+    showNotification('error', 'Session expired. Please login again');
+    // Redirect to login
+    logout();
+  }
+});
+
+provider.on('disconnect', () => {
+  showNotification('warning', 'Disconnected. Reconnecting...');
+});
+
+provider.on('connect', () => {
+  showNotification('success', 'Reconnected!');
+});
+```
+
+---
+
+### 3.10 Best Practices
+
+**1. Always Check Permissions Before Connecting**
+```javascript
+const { canEdit } = await canEditWorklog(worklogId);
+if (!canEdit) {
+  // Show view-only UI or error message
+  return;
+}
+// Only then connect to WebSocket
+```
+
+**2. Handle Connection States Gracefully**
+```javascript
+const [connectionStatus, setConnectionStatus] = useState('disconnected');
+
+provider.onStatus(({ status }) => {
+  setConnectionStatus(status);
+  
+  if (status === 'disconnected') {
+    showNotification('warning', 'Connection lost. Changes will sync when reconnected.');
+  }
+});
+```
+
+**3. Cleanup on Unmount**
+```javascript
+useEffect(() => {
+  const provider = new HocuspocusProvider({ ... });
+  
+  return () => {
+    provider?.destroy(); // Always cleanup
+    editor?.destroy();
+  };
+}, [worklogId]);
+```
+
+**4. Use Environment Variables for URLs**
+```javascript
+const wsUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:1234';
+const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+```
+
+**5. Debounce Non-Critical Updates**
+```javascript
+import { useMemo } from 'react';
+import debounce from 'lodash/debounce';
+
+const debouncedSaveTitle = useMemo(
+  () => debounce((title) => {
+    // Save title via REST API
+    updateWorklogTitle(worklogId, title);
+  }, 1000),
+  [worklogId]
+);
+```
+
+**6. Handle Offline Editing**
+```javascript
+// Yjs automatically handles offline editing
+// Changes are queued and synced when connection is restored
+
+provider.on('connect', () => {
+  console.log('Syncing offline changes...');
+});
+
+provider.on('synced', () => {
+  console.log('All changes synced!');
+  showNotification('success', 'Changes synchronized');
+});
+```
+
+---
+
+### 3.11 Production Deployment
+
+**1. Use WSS (Secure WebSocket) in Production:**
+```javascript
+const wsUrl = process.env.NODE_ENV === 'production'
+  ? 'wss://api.yourdomain.com'  // Secure WebSocket
+  : 'ws://localhost:1234';
+
+const provider = new HocuspocusProvider({
+  url: wsUrl,
+  name: worklogId,
+  // ...
+});
+```
+
+**2. Environment Variables (.env):**
+```env
+# Development
+REACT_APP_WS_URL=ws://localhost:1234
+REACT_APP_API_URL=http://localhost:5000
+
+# Production
+REACT_APP_WS_URL=wss://api.nebwork.com
+REACT_APP_API_URL=https://api.nebwork.com
+```
+
+**3. Backend Requirements:**
+- WebSocket server must be accessible (port 1234 or custom)
+- Use reverse proxy (Nginx) for WSS termination
+- Configure CORS for your frontend domain
+
+---
+
+### 3.12 Quick Reference
+
+**Install Dependencies:**
+```bash
+npm install @tiptap/react @tiptap/starter-kit @tiptap/extension-collaboration @tiptap/extension-collaboration-cursor @hocuspocus/provider yjs
+```
+
+**Minimum Setup:**
+```javascript
+import { HocuspocusProvider } from '@hocuspocus/provider';
+import * as Y from 'yjs';
+
+const ydoc = new Y.Doc();
+const provider = new HocuspocusProvider({
+  url: 'ws://localhost:1234',
+  name: worklogId,
+  document: ydoc,
+  token: jwtToken,
+  onAuthenticated: () => console.log('Connected'),
+  onAuthenticationFailed: ({ reason }) => console.error(reason)
+});
+```
+
+**Key APIs:**
+- `POST /api/worklogs/:id/collaborators` - Add collaborator
+- `PUT /api/worklogs/:id/collaborators/:id/permissions` - Change permissions
+- `GET /api/worklogs/:id/collaboration/status` - Get active users
+- `DELETE /api/worklogs/:id/collaborators/:id` - Remove collaborator
+
+---
+
+## 📤 4. File Uploads
+    <div className="connection-status" style={{ color: config.color }}>
+      {config.text}
+    </div>
+  );
+}
+```
+
+**3. Cleanup on Unmount**
+```javascript
+useEffect(() => {
+  // Setup provider...
+  
+  return () => {
+    // IMPORTANT: Destroy provider when component unmounts
+    if (provider) {
+      provider.destroy();
+    }
+    
+    if (editor) {
+      editor.destroy();
+    }
+  };
+}, [worklogId]);
+```
+
+**4. Offline Support**
+```javascript
+// Yjs/Hocuspocus handles offline editing automatically
+// Changes are queued and synced when connection is restored
+
+provider.on('connect', () => {
+  console.log('Syncing offline changes...');
+});
+
+provider.on('synced', () => {
+  console.log('All changes synced!');
+});
+```
+
+**5. Conflict Resolution**
+```javascript
+// Yjs (CRDT) automatically resolves conflicts
+// No manual intervention needed!
+
+// Example: Two users edit the same paragraph simultaneously
+// User A: "Hello World" -> "Hello Beautiful World"
+// User B: "Hello World" -> "Hello Amazing World"
+// Result: "Hello Beautiful Amazing World" (both edits preserved)
+```
+
+---
+
+### 3.9 Testing Real-time Collaboration
+
+**Test with Multiple Browser Tabs:**
+
+```javascript
+// Tab 1: Owner
+const editor1 = setupCollaborativeEditor(worklogId, user1Token);
+
+// Tab 2: Collaborator  
+const editor2 = setupCollaborativeEditor(worklogId, user2Token);
+
+// Type in Tab 1 - should appear in Tab 2 in real-time!
+// Type in Tab 2 - should appear in Tab 1 in real-time!
+```
+
+**Automated Testing Example:**
+```javascript
+describe('Real-time Collaboration', () => {
+  test('should sync changes between users', async () => {
+    // Connect two users
+    const provider1 = createProvider(worklogId, token1);
+    const provider2 = createProvider(worklogId, token2);
+    
+    await waitForSync(provider1, provider2);
+    
+    // User 1 makes changes
+    const ydoc1 = provider1.document;
+    const ytext = ydoc1.getText('content');
+    ytext.insert(0, 'Hello from User 1');
+    
+    // Wait for sync
+    await sleep(100);
+    
+    // User 2 should see the changes
+    const ydoc2 = provider2.document;
+    expect(ydoc2.getText('content').toString()).toBe('Hello from User 1');
+  });
+});
+```
+
+---
+
+### 3.10 Environment Variables
+
+**Required Environment Variables:**
+
+```bash
+# WebSocket server port (default: 1234)
+COLLAB_PORT=1234
+
+# JWT secret (must match your auth JWT)
+JWT_SECRET=your-secret-key-here
+
+# MongoDB URI (for document persistence)
+MONGO_URI=mongodb://localhost:27017/nebwork
+
+# Node environment
+NODE_ENV=development  # or 'production'
+```
+
+---
+
+### 3.11 Production Deployment
+
+**1. Use WSS (Secure WebSocket) in Production:**
+```javascript
+const wsUrl = process.env.NODE_ENV === 'production'
+  ? `wss://api.yourdomain.com/${worklogId}`
+  : `ws://localhost:1234/${worklogId}`;
+```
+
+**2. Configure Reverse Proxy (Nginx):**
+```nginx
+# Nginx configuration for WebSocket
+location /collab/ {
+    proxy_pass http://localhost:1234;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 86400;
+}
+```
+
+**3. DigitalOcean App Platform:**
+```yaml
+# app.yaml
+services:
+  - name: backend
+    http_port: 5000
+    routes:
+      - path: /
+    
+  - name: websocket
+    http_port: 1234
+    routes:
+      - path: /collab
+    envs:
+      - key: COLLAB_PORT
+        value: "1234"
+```
+
+---
+
+## �👥 4. Admin (Employee Management)
 
 ### 4.1 Add Employee
 
@@ -1100,9 +2013,9 @@ async function getEmployees(page = 1, limit = 10) {
 
 ---
 
-## 🤖 5. Chatbot (AI Assistant)
+## 🤖 6. Chatbot (AI Assistant)
 
-### 5.1 Send Message to Chatbot
+### 6.1 Send Message to Chatbot
 
 **Endpoint:** `POST /api/chatbot`
 
@@ -1187,7 +2100,7 @@ const handleChatMessage = async (message) => {
 
 ---
 
-### 5.2 Get Chat History
+### 6.2 Get Chat History
 
 **Endpoint:** `GET /api/chatbot/session/{session_id}`
 
@@ -1230,7 +2143,7 @@ const handleChatMessage = async (message) => {
 
 ---
 
-## ⚠️ 6. Error Handling
+## ⚠️ 7. Error Handling
 
 ### Standard Error Response Format
 
@@ -1308,9 +2221,9 @@ async function apiRequest(url, options = {}) {
 
 ---
 
-## 💡 7. Best Practices
+## 💡 8. Best Practices
 
-### 7.1 Authentication
+### 8.1 Authentication
 
 **Token Storage:**
 ```javascript
@@ -1348,7 +2261,7 @@ function checkAuth() {
 
 ---
 
-### 7.2 File Uploads
+### 8.2 File Uploads
 
 **Upload Workflow:**
 
@@ -1437,7 +2350,7 @@ async function uploadWithProgress(file, onProgress) {
 
 ---
 
-### 7.3 Work Logs
+### 8.3 Work Logs
 
 **Filtering Example:**
 ```javascript
@@ -1506,7 +2419,7 @@ searchInput.addEventListener('input', (e) => {
 
 ---
 
-### 7.4 Chatbot Integration
+### 8.4 Chatbot Integration
 
 **Session Management:**
 ```javascript
@@ -1585,7 +2498,7 @@ async function askChatbotWithLoading(message) {
 
 ---
 
-### 7.5 Performance Optimization
+### 8.5 Performance Optimization
 
 **Lazy Loading Work Logs:**
 ```javascript
@@ -1659,7 +2572,7 @@ function setupLazyLoading() {
 
 ---
 
-### 7.6 Security Best Practices
+### 8.6 Security Best Practices
 
 **Input Sanitization:**
 ```javascript
@@ -1870,19 +2783,21 @@ GET    /api/admin/employees
 Chatbot:
 POST   /api/chatbot
 GET    /api/chatbot/session/{session_id}
+
+Real-time Collaboration:
+WebSocket ws://localhost:1234/{worklogId}
 ```
 
 ---
 
-## 📞 Support
+## �📞 Support
 
 For issues or questions, contact the backend team or refer to:
 - Swagger Documentation: `http://localhost:5000/api-docs`
-- GitHub Issues: [Your Repository]
-- Slack Channel: #backend-support
+- GitHub Issues: [[Github](https://github.com/kada-hackathon/backend)]
 
 ---
 
-**Document Version:** 1.0.0  
-**Last Updated:** November 3, 2025  
-**Maintained By:** Backend Team
+**Document Version:** 1.1.0  
+**Last Updated:** November 4, 2025  
+**Maintained By:** Arrizal Bintang R

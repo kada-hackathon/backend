@@ -7,12 +7,25 @@ const workLogSchema = new mongoose.Schema({
   media: [{ type: String }],
   collaborators: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   datetime: { type: Date, default: Date.now },
+  lastModified: { type: Date, default: Date.now },
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   log_history: [{ type: mongoose.Schema.Types.ObjectId, ref: "LogHistory" }],
   embedding: {
     type: [Number],
     select: false // Don't return by default
-  }
+  },
+  // Real-time collaboration fields for Hocuspocus
+  yjsState: {
+    type: Buffer, // Stores Yjs binary document state
+    select: false // Don't return by default (can be large)
+  },
+  activeUsers: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    name: String,
+    email: String,
+    socketId: String,
+    connectedAt: Date
+  }]
 });
 
 workLogSchema.index({ title: 'text', content: 'text' });
