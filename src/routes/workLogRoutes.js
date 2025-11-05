@@ -6,6 +6,7 @@ const {
   deleteWorkLog,
   addVersion,
   getVersions,
+  getLogHistoryById,
   addCollaborator,
   getCollaborators,
   deleteCollaborator,
@@ -24,6 +25,7 @@ router.delete("/:id", protect, deleteWorkLog);
 // Version Routes
 router.post("/:id/versions", protect, addVersion);
 router.get("/:id/versions", protect, getVersions);
+router.get("/loghistory/:id", protect, getLogHistoryById);
 
 // Collaborator Routes
 router.post("/:id/collaborators", protect, addCollaborator);
