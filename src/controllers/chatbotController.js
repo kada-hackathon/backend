@@ -481,3 +481,156 @@ exports.handleNoContext = async (userId, sessionId, message, res) => {
         timestamp: requestChat.createdAt
     });
 };
+
+/**
+ * ================================================================
+ * GET CHAT HISTORY (ALL SESSIONS) WITH PAGINATION
+ * ================================================================
+ * 
+ * Endpoint: GET /api/chatbot/history?page=1&limit=10
+ * 
+ * Purpose: Get list of all chat sessions for user with metadata
+ * 
+ * Query Parameters:
+ * - page: Page number (default: 1)
+ * - limit: Sessions per page (default: 10, max: 50)
+ * 
+ * Uses MongoDB aggregation to:
+ * - Group messages by session_id
+ * - Extract title (first message)
+ * - Get last message (last response)
+ * - Calculate message count
+ * - Sort by most recent first
+ * - Paginate results
+ * 
+ * @route GET /api/chatbot/history
+ * @access Private (requires authentication)
+ * ================================================================
+ */
+exports.getChatHistory = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        
+        // Parse pagination parameters
+        const page = parseInt(req.query.page) || 1;
+        const limit = Math.min(parseInt(req.query.limit) || 10, 50); // Max 50 per page
+        const skip = (page - 1) * limit;
+
+        // Get total count of sessions first
+        const totalSessions = await Chat.distinct('session_id', { user: userId });
+        const totalCount = totalSessions.length;
+        const totalPages = Math.ceil(totalCount / limit);
+
+        // MongoDB aggregation pipeline with pagination
+        const sessions = await Chat.aggregate([
+            // Stage 1: Filter by user
+            { $match: { user: userId } },
+            
+            // Stage 2: Sort by creation time (oldest first for grouping)
+            { $sort: { createdAt: 1 } },
+            
+            // Stage 3: Group by session_id and collect metadata
+            { 
+                $group: {
+                    _id: "$session_id",
+                    first_message: { $first: "$message" },
+                    last_response: { $last: "$response" },
+                    first_created: { $first: "$createdAt" },
+                    last_updated: { $last: "$createdAt" },
+                    message_count: { $sum: 1 }
+                }
+            },
+            
+            // Stage 4: Sort by most recent first
+            { $sort: { last_updated: -1 } },
+            
+            // Stage 5: Pagination - Skip
+            { $skip: skip },
+            
+            // Stage 6: Pagination - Limit
+            { $limit: limit }
+        ]);
+
+        // Format response for frontend
+        const history = sessions.map(session => ({
+            session_id: session._id,
+            title: session.first_message.substring(0, 50) + (session.first_message.length > 50 ? '...' : ''),
+            last_message: session.last_response.substring(0, 100) + (session.last_response.length > 100 ? '...' : ''),
+            message_count: session.message_count,
+            created_at: session.first_created,
+            updated_at: session.last_updated
+        }));
+
+        res.json({ 
+            chats: history,
+            pagination: {
+                current_page: page,
+                total_pages: totalPages,
+                total_sessions: totalCount,
+                sessions_per_page: limit,
+                has_next: page < totalPages,
+                has_prev: page > 1
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching chat history:', error);
+        return res.status(500).json({ 
+            error: "Failed to fetch chat history",
+            details: error.message 
+        });
+    }
+};
+
+/**
+ * ================================================================
+ * DELETE CHAT SESSION
+ * ================================================================
+ * 
+ * Endpoint: DELETE /api/chatbot/session/:session_id
+ * 
+ * Purpose: Delete all messages in a specific chat session
+ * 
+ * Security: Users can only delete their own sessions
+ * 
+ * @route DELETE /api/chatbot/session/:session_id
+ * @access Private (requires authentication)
+ * ================================================================
+ */
+exports.deleteChatSession = async (req, res) => {
+    try {
+        const { session_id } = req.params;
+        const userId = req.user._id;
+
+        // Validate session_id
+        if (!session_id) {
+            return res.status(400).json({ error: "Session ID is required" });
+        }
+
+        // Delete all messages in this session for this user
+        const result = await Chat.deleteMany({
+            user: userId,
+            session_id: session_id
+        });
+
+        // Check if any documents were deleted
+        if (result.deletedCount === 0) {
+            return res.status(404).json({ 
+                error: "Chat session not found or already deleted" 
+            });
+        }
+
+        res.json({
+            message: "Chat session deleted successfully",
+            session_id: session_id,
+            deleted_count: result.deletedCount
+        });
+
+    } catch (error) {
+        console.error('Error deleting chat session:', error);
+        return res.status(500).json({ 
+            error: "Failed to delete chat session",
+            details: error.message 
+        });
+    }
+};
