@@ -16,14 +16,15 @@ const setupHocuspocus = (httpServer) => {
     
     async onAuthenticate({ token, documentName }) {
       try {
-        console.log(`🔐 Auth attempt for document: ${documentName}`);
+        console.log(`🔐 [onAuthenticate] Auth attempt for document: ${documentName}`);
+        console.log(`   Token received: ${token ? 'YES' : 'NO'}`);
         
         if (!token) {
           throw new Error('No token provided');
         }
         
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        console.log(`✅ JWT verified for user: ${decoded.id}`);
+        console.log(`✅ [onAuthenticate] JWT verified for user: ${decoded.id}`);
         
         const worklog = await WorkLog.findById(documentName)
           .populate('user', '_id division')
@@ -33,10 +34,15 @@ const setupHocuspocus = (httpServer) => {
           throw new Error('WorkLog not found');
         }
         
+        console.log(`   Worklog owner: ${worklog.user._id}`);
+        console.log(`   Collaborators: ${worklog.collaborators.map(c => c._id).join(', ')}`);
+        
         const isOwner = worklog.user._id.toString() === decoded.id;
         const isCollaborator = worklog.collaborators.some(
           collab => collab._id.toString() === decoded.id
         );
+        
+        console.log(`   Is owner: ${isOwner}, Is collaborator: ${isCollaborator}`);
         
         // 🔒 STRICT INVITE-ONLY: Only owner and explicitly invited collaborators can edit
         if (!isOwner && !isCollaborator) {
@@ -46,23 +52,45 @@ const setupHocuspocus = (httpServer) => {
         const User = require('../models/User');
         const user = await User.findById(decoded.id);
         
-        console.log(`✅ Access granted for user: ${user.name}`);
+        if (!user) {
+          throw new Error('User not found in database');
+        }
         
+        const userData = {
+          id: decoded.id,
+          name: user.name,
+          email: user.email,
+          division: user.division
+        };
+        
+        console.log(`✅ [onAuthenticate] Access granted for user: ${user.name}`);
+        console.log(`   Returning user data:`, userData);
+        
+        // Return the user data that will be available in context
         return {
-          user: {
-            id: decoded.id,
-            name: user.name,
-            email: user.email,
-            division: user.division
-          }
+          user: userData
         };
       } catch (error) {
-        console.error('❌ Authentication failed:', error.message);
+        console.error('❌ [onAuthenticate] Authentication failed:', error.message);
+        console.error('   Stack:', error.stack);
         throw error;
       }
     },
     
     async onConnect({ documentName, context, socketId }) {
+      console.log('[onConnect] Connection attempt:', {
+        documentName,
+        hasContext: !!context,
+        hasUser: !!context?.user,
+        user: context?.user,
+        socketId
+      });
+      
+      if (!context || !context.user) {
+        console.error('❌ [onConnect] No user context available');
+        return;
+      }
+      
       console.log(`✅ ${context.user.name} connected to ${documentName}`);
       
       try {
@@ -166,7 +194,6 @@ const setupHocuspocus = (httpServer) => {
     const url = new URL(request.url, `http://${request.headers.host}`);
     
     console.log(`📡 WebSocket upgrade request: ${url.pathname}`);
-    console.log(`   Headers:`, request.headers);
     
     // Only handle Hocuspocus WebSocket connections on /collaboration path
     if (url.pathname.startsWith('/collaboration')) {
@@ -182,7 +209,13 @@ const setupHocuspocus = (httpServer) => {
         console.log(`   Token from header: ${token.substring(0, 20)}...`);
       }
       
-      // Add token to request for Hocuspocus
+      // Try query params if no header
+      if (!token && url.searchParams.has('token')) {
+        token = url.searchParams.get('token');
+        console.log(`   Token from query: ${token.substring(0, 20)}...`);
+      }
+      
+      // Add token to request URL for Hocuspocus
       if (token) {
         // Hocuspocus expects token in URL query params
         const separator = url.search ? '&' : '?';
@@ -190,13 +223,14 @@ const setupHocuspocus = (httpServer) => {
         console.log(`   Updated URL: ${request.url}`);
       }
       
-      // Use the internal WebSocket server's handleUpgrade
+      // Let Hocuspocus's internal WebSocket server handle the upgrade and connection
+      // This properly triggers all Hocuspocus hooks (onAuthenticate, onConnect, etc.)
       server.webSocketServer.handleUpgrade(request, socket, head, (ws) => {
         server.webSocketServer.emit('connection', ws, request);
       });
     } else {
       console.log(`❌ Not a collaboration path, destroying socket`);
-      // Let other WebSocket handlers (if any) handle their paths
+      // Reject non-collaboration WebSocket connections
       socket.destroy();
     }
   });
