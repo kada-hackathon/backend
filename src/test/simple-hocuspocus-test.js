@@ -12,7 +12,7 @@ const WebSocket = require('ws');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 
-const COLLAB_PORT = process.env.COLLAB_PORT || 1234;
+const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGO_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -58,10 +58,10 @@ async function simpleTest() {
 
     // Test WebSocket connection
     console.log('🔌 Attempting WebSocket connection...');
-    console.log(`   URL: ws://localhost:${COLLAB_PORT}/${testWorkLog._id}`);
+    console.log(`   URL: ws://localhost:${PORT}/collaboration/${testWorkLog._id}`);
     console.log(`   Token: ${token.substring(0, 20)}...\n`);
 
-    const ws = new WebSocket(`ws://localhost:${COLLAB_PORT}/${testWorkLog._id}`, {
+    const ws = new WebSocket(`ws://localhost:${PORT}/collaboration/${testWorkLog._id}`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -78,10 +78,11 @@ async function simpleTest() {
         console.log('🎉 SUCCESS! Hocuspocus server is accepting connections!\n');
         console.log('📊 What this proves:');
         console.log('  ✅ Hocuspocus server is running');
-        console.log('  ✅ Port 1234 is accessible');
+        console.log(`  ✅ Port ${PORT} is accessible`);
         console.log('  ✅ JWT authentication working');
         console.log('  ✅ Document lookup working');
-        console.log('  ✅ Permission check working\n');
+        console.log('  ✅ Permission check working');
+        console.log('  ✅ WebSocket upgrade on /collaboration path working\n');
         
         ws.close();
         resolve();

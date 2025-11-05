@@ -3,9 +3,16 @@ const { Database } = require('@hocuspocus/extension-database');
 const WorkLog = require('../models/WorkLog');
 const jwt = require('jsonwebtoken');
 
-const setupHocuspocus = () => {
+/**
+ * Setup Hocuspocus WebSocket server attached to existing HTTP server
+ * This allows WebSocket connections on the same port as Express (required for DigitalOcean App Platform)
+ * 
+ * @param {http.Server} httpServer - The HTTP server instance from Express
+ * @returns {Server} Hocuspocus server instance
+ */
+const setupHocuspocus = (httpServer) => {
   const server = new Server({
-    port: parseInt(process.env.COLLAB_PORT) || 1234,
+    // No port configuration - we're attaching to existing HTTP server
     
     async onAuthenticate({ token, documentName }) {
       try {
@@ -103,7 +110,6 @@ const setupHocuspocus = () => {
     },
 
     async onChange({ documentName, context }) {
-      // Track that document was modified
       try {
         await WorkLog.findByIdAndUpdate(documentName, {
           lastModified: new Date()
@@ -115,7 +121,6 @@ const setupHocuspocus = () => {
 
     async onDestroy() {
       console.log('🔌 Hocuspocus server is shutting down...');
-      // Clean up any active sessions
       try {
         await WorkLog.updateMany(
           { 'activeUsers.0': { $exists: true } },
@@ -156,9 +161,48 @@ const setupHocuspocus = () => {
     maxDebounce: 10000
   });
 
-  // Use standalone mode on separate port
-  server.listen();
-  console.log(`🚀 Hocuspocus running on port ${process.env.COLLAB_PORT || 1234}`);
+  // Handle WebSocket upgrade requests on /collaboration path
+  httpServer.on('upgrade', async (request, socket, head) => {
+    const url = new URL(request.url, `http://${request.headers.host}`);
+    
+    console.log(`📡 WebSocket upgrade request: ${url.pathname}`);
+    console.log(`   Headers:`, request.headers);
+    
+    // Only handle Hocuspocus WebSocket connections on /collaboration path
+    if (url.pathname.startsWith('/collaboration')) {
+      console.log(`✅ Routing to Hocuspocus`);
+      
+      // Extract token from Authorization header or query param
+      let token = null;
+      
+      // Try Authorization header first
+      const authHeader = request.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+        console.log(`   Token from header: ${token.substring(0, 20)}...`);
+      }
+      
+      // Add token to request for Hocuspocus
+      if (token) {
+        // Hocuspocus expects token in URL query params
+        const separator = url.search ? '&' : '?';
+        request.url = `${request.url}${separator}token=${token}`;
+        console.log(`   Updated URL: ${request.url}`);
+      }
+      
+      // Use the internal WebSocket server's handleUpgrade
+      server.webSocketServer.handleUpgrade(request, socket, head, (ws) => {
+        server.webSocketServer.emit('connection', ws, request);
+      });
+    } else {
+      console.log(`❌ Not a collaboration path, destroying socket`);
+      // Let other WebSocket handlers (if any) handle their paths
+      socket.destroy();
+    }
+  });
+  
+  console.log(`🚀 Hocuspocus attached to HTTP server on /collaboration path`);
+  console.log(`   WebSocket URL: ws://localhost:${process.env.PORT || 5000}/collaboration`);
   
   return server;
 };
