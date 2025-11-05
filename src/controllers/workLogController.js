@@ -61,9 +61,21 @@ exports.editWorkLog = async (req, res) => {
       { new: true }
     );
     
+    // await LogHistory.create({
+    //   message: `Edited post: ${log.title}`,
+    //   user: req.user._id
+    // });
+
     await LogHistory.create({
       message: `Edited post: ${log.title}`,
-      user: req.user._id
+      user: req.user._id,
+      snapshot: {
+        title: updated.title,
+        content: updated.content,
+        tag: updated.tag,
+        media: updated.media,
+        datetime: new Date(),
+      }
     });
     res.json(updated);
   } catch (error) {
@@ -100,10 +112,24 @@ exports.addVersion = async (req, res) => {
     const log = await WorkLog.findById(req.params.id);
     if (!log) return res.status(404).json({ message: "Not found" });
 
+    // const version = await LogHistory.create({
+    //   message,
+    //   user: req.user._id
+    // });
+
     const version = await LogHistory.create({
       message,
-      user: req.user._id
+      user: req.user._id,
+      snapshot: {
+        title: log.title,
+        content: log.content,
+        tag: log.tag,
+        media: log.media,
+        collaborators: log.collaborators,
+        datetime: new Date(),
+      }
     });
+
     log.log_history.push(version._id);
     await log.save();
     res.status(201).json({
@@ -144,6 +170,21 @@ exports.getVersions = async (req, res) => {
   }
 };
 
+// GET SINGLE LOG HISTORY
+exports.getLogHistoryById = async (req, res) => {
+  try {
+    const history = await LogHistory.findById(req.params.id);
+
+    if (!history) {
+      return res.status(404).json({ message: "LogHistory not found" });
+    }
+
+    res.json(history);
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 
 exports.addCollaborator = async (req, res) => {
   try {
@@ -159,7 +200,7 @@ exports.addCollaborator = async (req, res) => {
       await log.save();
     }
 
-    res.json({ message: "Collaborator added", log });
+    res.json({ emessage: "Collaborator added", log });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
