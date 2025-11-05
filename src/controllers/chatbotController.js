@@ -4,6 +4,7 @@ const chatbotService = require('../services/chatbotService');
 const aiService = require('../services/aiService');
 const cacheService = require('../services/cacheService');
 const { v4: uuidv4 } = require('uuid');
+const mongoose = require('mongoose');
 
 /**
  * ====================================================================
@@ -509,7 +510,7 @@ exports.handleNoContext = async (userId, sessionId, message, res) => {
  */
 exports.getChatHistory = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const userId = mongoose.Types.ObjectId(req.user._id);
         
         // Parse pagination parameters
         const page = parseInt(req.query.page) || 1;
@@ -523,7 +524,7 @@ exports.getChatHistory = async (req, res) => {
 
         // MongoDB aggregation pipeline with pagination
         const sessions = await Chat.aggregate([
-            // Stage 1: Filter by user
+            // Stage 1: Filter by user (convert to ObjectId for aggregation)
             { $match: { user: userId } },
             
             // Stage 2: Sort by creation time (oldest first for grouping)
@@ -554,8 +555,8 @@ exports.getChatHistory = async (req, res) => {
         // Format response for frontend
         const history = sessions.map(session => ({
             session_id: session._id,
-            title: session.first_message.substring(0, 50) + (session.first_message.length > 50 ? '...' : ''),
-            last_message: session.last_response.substring(0, 100) + (session.last_response.length > 100 ? '...' : ''),
+            title: (session.first_message || 'New Chat').substring(0, 50) + ((session.first_message || '').length > 50 ? '...' : ''),
+            last_message: (session.last_response || '').substring(0, 100) + ((session.last_response || '').length > 100 ? '...' : ''),
             message_count: session.message_count,
             created_at: session.first_created,
             updated_at: session.last_updated
