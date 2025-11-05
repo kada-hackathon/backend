@@ -4,7 +4,6 @@ const chatbotService = require('../services/chatbotService');
 const aiService = require('../services/aiService');
 const cacheService = require('../services/cacheService');
 const { v4: uuidv4 } = require('uuid');
-const mongoose = require('mongoose');
 
 /**
  * ====================================================================
@@ -230,6 +229,9 @@ exports.postMessageChatbot = async (req, res) => {
         // - Justify optimization efforts with data
         // - SLA compliance (are we meeting performance targets?)
         const totalTime = Date.now() - startTime;
+        const embeddingPercent = Math.round((embeddingTime / totalTime) * 100);
+        const searchPercent = Math.round((searchTime / totalTime) * 100);
+        const aiPercent = Math.round((aiTime / totalTime) * 100);
 
         // ============================================================
         // SEND RESPONSE TO USER
@@ -510,7 +512,8 @@ exports.handleNoContext = async (userId, sessionId, message, res) => {
  */
 exports.getChatHistory = async (req, res) => {
     try {
-        const userId = mongoose.Types.ObjectId(req.user._id);
+        // No need to convert - MongoDB handles it automatically in aggregation
+        const userId = req.user._id;
         
         // Parse pagination parameters
         const page = parseInt(req.query.page) || 1;
@@ -524,7 +527,7 @@ exports.getChatHistory = async (req, res) => {
 
         // MongoDB aggregation pipeline with pagination
         const sessions = await Chat.aggregate([
-            // Stage 1: Filter by user (convert to ObjectId for aggregation)
+            // Stage 1: Filter by user (ObjectId auto-converted by MongoDB)
             { $match: { user: userId } },
             
             // Stage 2: Sort by creation time (oldest first for grouping)
