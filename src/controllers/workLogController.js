@@ -195,12 +195,21 @@ exports.addCollaborator = async (req, res) => {
     const log = await WorkLog.findById(req.params.id);
     if (!log) return res.status(404).json({ message: "WorkLog not found" });
 
+    // Check if user is the owner
+    if (log.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Only the owner can add collaborators" });
+    }
+
+    // Add to collaborators array if not already there
     if (!log.collaborators.includes(collaborator._id)) {
       log.collaborators.push(collaborator._id);
       await log.save();
     }
 
-    res.json({ emessage: "Collaborator added", log });
+    res.json({ 
+      message: "Collaborator added with edit access", 
+      log 
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -353,6 +362,38 @@ exports.getWorkLogById = async (req, res) => {
     }
     
     res.json(worklog);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// GET active collaboration status (who's editing right now)
+exports.getCollaborationStatus = async (req, res) => {
+  try {
+    const worklog = await WorkLog.findById(req.params.id)
+      .select('activeUsers title user collaborators')
+      .populate('activeUsers.userId', 'name email profile_photo');
+    
+    if (!worklog) {
+      return res.status(404).json({ message: "WorkLog not found" });
+    }
+
+    // Check if user has access to view this
+    const isOwner = worklog.user?.toString() === req.user._id.toString();
+    const isCollaborator = worklog.collaborators?.some(
+      id => id.toString() === req.user._id.toString()
+    );
+    
+    if (!isOwner && !isCollaborator) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    res.json({
+      worklogId: worklog._id,
+      title: worklog.title,
+      activeUsers: worklog.activeUsers || [],
+      totalActive: worklog.activeUsers?.length || 0
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
