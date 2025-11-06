@@ -13,6 +13,8 @@ const workLogSchema = new mongoose.Schema({
     type: [Number],
     select: false // Don't return by default
   }
+}, {
+  timestamps: true // Adds createdAt and updatedAt automatically
 });
 
 workLogSchema.index({ title: 'text', content: 'text' });
