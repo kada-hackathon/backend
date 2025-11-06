@@ -12,6 +12,7 @@ const {
   deleteCollaborator,
   filterWorkLogs,
   getWorkLogById,
+  getCollaborationStatus,
 } = require("../controllers/workLogController");
 const { protect } = require("../middlewares/authMiddleware");
 
@@ -31,5 +32,8 @@ router.get("/loghistory/:id", protect, getLogHistoryById);
 router.post("/:id/collaborators", protect, addCollaborator);
 router.get("/:id/collaborators", protect, getCollaborators);
 router.delete("/:id/collaborators/:collaboratorId", protect, deleteCollaborator);
+
+// Real-time Collaboration Routes
+router.get("/:id/collaboration/status", protect, getCollaborationStatus);
 
 module.exports = router;
