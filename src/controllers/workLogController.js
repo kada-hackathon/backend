@@ -266,7 +266,7 @@ exports.filterWorkLogs = async (req, res) => {
         select: "name email division profile_photo"
       })
       .populate("collaborators", "name email division")
-      .sort({ datetime: -1 });
+      .sort({ updatedAt: -1 }); // Sort by last modified (most recent first)
 
     // Remove entries where user population returned null (different division)
     logs = logs.filter(log => log.user !== null);
