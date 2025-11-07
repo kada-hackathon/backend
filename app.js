@@ -1,6 +1,8 @@
 // Express app factory (no server listen here) - used by tests and index.js
 const express = require('express');
 const cors = require("cors");
+const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
 const setupSwagger = require('./src/swagger/swagger');
 const authRoutes = require('./src/routes/authRoutes');
 const adminRoutes = require('./src/routes/adminRoutes');
@@ -9,6 +11,12 @@ const chatBotRoutes = require('./src/routes/chatbotRoutes');
 const uploadRoutes = require('./src/routes/uploadRoutes');
 
 const app = express();
+
+// Security: Helmet middleware for security headers
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for now (can be configured later)
+  crossOriginEmbedderPolicy: false // Allow embedding for Swagger UI
+}));
 
 // CORS middleware to allow frontend requests
 app.use((req, res, next) => {
