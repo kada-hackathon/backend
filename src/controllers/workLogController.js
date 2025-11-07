@@ -220,7 +220,7 @@ exports.getCollaborators = async (req, res) => {
   try {
     const log = await WorkLog.findById(req.params.id).populate(
       "collaborators",
-      "name email division role"
+      "name email division role profile_photo"
     );
     if (!log) return res.status(404).json({ message: "WorkLog not found" });
 
@@ -315,7 +315,7 @@ exports.filterWorkLogs = async (req, res) => {
         match: { division: userDivision }, // Filter by division during population
         select: "name email division profile_photo"
       })
-      .populate("collaborators", "name email division")
+      .populate("collaborators", "name email division profile_photo")
       .sort({ updatedAt: -1 }); // Sort by last modified (most recent first)
 
     // Remove entries where user population returned null (different division)
@@ -355,7 +355,7 @@ exports.getWorkLogById = async (req, res) => {
   try {
     const worklog = await WorkLog.findById(req.params.id)
       .populate("user", "name email division profile_photo join_date")
-      .populate("collaborators", "name email division");
+      .populate("collaborators", "name email division profile_photo");
     
     if (!worklog) {
       return res.status(404).json({ message: "WorkLog not found" });
