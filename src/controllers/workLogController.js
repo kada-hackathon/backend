@@ -220,7 +220,7 @@ exports.getCollaborators = async (req, res) => {
   try {
     const log = await WorkLog.findById(req.params.id).populate(
       "collaborators",
-      "name email division role"
+      "name email division role profile_photo"
     );
     if (!log) return res.status(404).json({ message: "WorkLog not found" });
 
