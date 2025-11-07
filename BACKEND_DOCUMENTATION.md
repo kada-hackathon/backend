@@ -63,8 +63,8 @@ NEBWORK is a work logging and knowledge management platform designed to help com
 - **Password Validation:** Custom validator utility
 
 ### AI & Embeddings
-- **OpenAI API:** GPT-4 for chatbot responses
-- **Embedding Service:** Vector embeddings for semantic search
+- **DigitalOcean AI Inference:** DeepSeek-R1-Distill-Llama-70B for chatbot responses
+- **Elice/OpenAI API:** Text Embedding 3 Large for vector embeddings and semantic search
 - **Caching:** node-cache for performance
 
 ### Development
@@ -168,8 +168,8 @@ EMAIL_FROM=NEBWORK <noreply@nebwork.com>
 DISABLE_EMAIL=false                # Set to true to skip email in tests
 
 # AI Services
-OPENAI_API_KEY=sk-...              # OpenAI API key
-EMBEDDING_API_KEY=sk-...           # OpenAI API key for embeddings
+MODEL_ACCESS_KEY=do-ai-...         # DigitalOcean AI Inference API key for DeepSeek model
+EMBEDDING_API_KEY=sk-...           # Elice/OpenAI API key for Text Embedding 3 Large
 
 # File Storage (DigitalOcean Spaces or AWS S3)
 OS_ENDPOINT=https://sgp1.digitaloceanspaces.com  # S3-compatible endpoint
@@ -191,6 +191,7 @@ On startup, the server validates these **required** variables:
 - `OS_ACCESS_KEY`
 - `OS_SECRET_KEY`
 - `OS_BUCKET`
+- `MODEL_ACCESS_KEY`
 - `EMBEDDING_API_KEY`
 
 **If any are missing, the server will exit with an error.**
@@ -768,10 +769,10 @@ Content-Type: application/json
 ```
 
 **How it works:**
-1. User message is converted to embedding
+1. User message is converted to embedding using Text Embedding 3 Large
 2. System searches for similar work logs using vector similarity
-3. Relevant logs are sent to GPT-4 as context
-4. GPT-4 generates response based on work log knowledge
+3. Relevant logs are sent to DeepSeek-R1-Distill-Llama-70B as context
+4. DeepSeek generates response based on work log knowledge
 
 ---
 
@@ -1086,23 +1087,6 @@ UserSchema.pre('save', async function(next){
 
 ---
 
-### Security Score
-
-| Feature | Status |
-|---------|--------|
-| Password Hashing | ✅ Implemented |
-| JWT Tokens | ✅ Implemented |
-| Rate Limiting | ✅ Implemented |
-| Strong Password Policy | ✅ Implemented |
-| Security Headers | ✅ Implemented |
-| CORS Protection | ✅ Implemented |
-| HTTPS | ❌ Production Only |
-| 2FA/MFA | ❌ Not Implemented |
-
-**Overall Score:** 8/10
-
----
-
 ## Database Models
 
 ### User Model
@@ -1285,303 +1269,11 @@ npm test
 
 ---
 
-## Deployment
-
-### Recommended Platforms
-
-#### Option 1: Railway (Auto HTTPS) ⭐
-```powershell
-railway up
-```
-
-**Pros:**
-- Automatic HTTPS
-- Free SSL certificate
-- Easy MongoDB integration
-- Zero config needed
-
----
-
-#### Option 2: DigitalOcean App Platform
-1. Connect GitHub repository
-2. Set environment variables in dashboard
-3. Deploy automatically on push
-
-**Pros:**
-- Managed database option
-- Automatic scaling
-- Integrated monitoring
-
----
-
-#### Option 3: Vercel (Backend as Serverless Functions)
-```powershell
-vercel --prod
-```
-
-**Pros:**
-- Free tier
-- Global CDN
-- Instant rollbacks
-
-**Cons:**
-- WebSocket support limited
-- Not ideal for Hocuspocus
-
----
-
-#### Option 4: VPS (Ubuntu + Nginx)
-
-**Setup:**
-```bash
-# Install Node.js
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt-get install -y nodejs
-
-# Clone repo
-git clone https://github.com/kada-hackathon/backend.git
-cd backend
-npm install
-
-# Install PM2
-npm install -g pm2
-pm2 start index.js --name nebwork-backend
-pm2 save
-pm2 startup
-
-# Install Nginx
-sudo apt install nginx
-
-# Setup SSL with Let's Encrypt
-sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d api.yourdomain.com
-```
-
-**Nginx Config:** `/etc/nginx/sites-available/nebwork`
-```nginx
-server {
-    listen 80;
-    server_name api.yourdomain.com;
-
-    location / {
-        proxy_pass http://localhost:5000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    # WebSocket support for Hocuspocus
-    location /ws {
-        proxy_pass http://localhost:5000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_set_header Host $host;
-    }
-}
-```
-
----
-
-### Pre-Deployment Checklist
-
-- [ ] Set all required environment variables
-- [ ] Change `JWT_SECRET` to strong random value
-- [ ] Set `NODE_ENV=production`
-- [ ] Configure production MongoDB URI
-- [ ] Set production `FRONTEND_URL` for CORS
-- [ ] Configure file storage (S3/Spaces)
-- [ ] Set up email service credentials
-- [ ] Enable HTTPS
-- [ ] Run tests: `npm test`
-- [ ] Build check: `npm start`
-
----
-
-### Environment Variables for Production
-
-```env
-NODE_ENV=production
-PORT=5000
-MONGO_URI=mongodb+srv://user:pass@cluster.mongodb.net/nebwork?retryWrites=true&w=majority
-JWT_SECRET=your-production-secret-change-this
-JWT_EXPIRE=7d
-EMAIL_SERVICE=gmail
-EMAIL_USER=noreply@yourdomain.com
-EMAIL_PASS=your-app-password
-EMAIL_FROM=NEBWORK <noreply@yourdomain.com>
-OPENAI_API_KEY=sk-prod-key
-EMBEDDING_API_KEY=sk-prod-key
-OS_ENDPOINT=https://sgp1.digitaloceanspaces.com
-OS_ACCESS_KEY=prod-access-key
-OS_SECRET_KEY=prod-secret-key
-OS_BUCKET=nebwork-prod
-OS_REGION=sgp1
-FRONTEND_URL=https://yourdomain.com
-```
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-#### 1. Server Won't Start
-
-**Symptom:** "Missing required environment variables"
-
-**Solution:** Check `.env` file has all required variables:
-```powershell
-# Windows PowerShell
-Get-Content .env
-```
-
----
-
-#### 2. MongoDB Connection Failed
-
-**Symptom:** "MongooseServerSelectionError"
-
-**Solutions:**
-- Check MongoDB is running: `mongod --version`
-- Verify `MONGO_URI` in `.env`
-- Whitelist IP in MongoDB Atlas (if using cloud)
-- Check firewall settings
-
----
-
-#### 3. JWT Token Invalid
-
-**Symptom:** 401 Unauthorized
-
-**Solutions:**
-- Check token is sent in header: `Authorization: Bearer <token>`
-- Verify token hasn't expired (default: 7 days)
-- Confirm `JWT_SECRET` matches between frontend/backend
-- Check token is stored in `sessionStorage` (not `localStorage`)
-
----
-
-#### 4. Rate Limit Blocking Legitimate Users
-
-**Symptom:** "Too many requests" error
-
-**Solutions:**
-- Wait for cooldown period (15 min for login, 1 hr for password reset)
-- Adjust rate limits in `src/routes/authRoutes.js`:
-```javascript
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10, // Increase from 5 to 10
-  message: { error: 'Too many login attempts' }
-});
-```
-
----
-
-#### 5. Chatbot Not Working
-
-**Symptom:** Empty responses or errors
-
-**Solutions:**
-- Verify `OPENAI_API_KEY` is set
-- Check OpenAI API quota/balance
-- Ensure work logs have embeddings:
-```powershell
-node src/scripts/migrateEmbeddings.js
-```
-
----
-
-#### 6. File Upload Fails
-
-**Symptom:** 500 error on file upload
-
-**Solutions:**
-- Verify S3/Spaces credentials in `.env`
-- Check bucket permissions (public read, private write)
-- Confirm bucket name and region are correct
-- Check file size limit (default: 50MB)
-
----
-
-#### 7. CORS Errors
-
-**Symptom:** "Access-Control-Allow-Origin" error
-
-**Solutions:**
-- Set `FRONTEND_URL` in `.env`
-- Check frontend URL matches exactly (no trailing slash)
-- Verify CORS middleware in `app.js`
-
----
-
-#### 8. WebSocket Connection Failed (Hocuspocus)
-
-**Symptom:** Real-time collaboration not working
-
-**Solutions:**
-- Check WebSocket port is open (same as HTTP)
-- Verify JWT token is passed to Hocuspocus provider
-- Check Nginx config has WebSocket proxy settings
-- Ensure `Upgrade` headers are forwarded
-
----
-
-### Debug Commands
-
-**Check MongoDB Connection:**
-```powershell
-node -e "require('./src/config/db')()"
-```
-
-**Test Email Service:**
-```powershell
-node src/test/test-email.js
-```
-
-**Generate Embeddings:**
-```powershell
-node src/scripts/migrateEmbeddings.js
-```
-
-**Debug WorkLog Issues:**
-```powershell
-node src/scripts/debugWorklog.js
-```
-
----
-
-### Logging
-
-**Production Logging:**
-```javascript
-// In production, logs go to stdout (captured by hosting platform)
-console.log('Server started'); // Info
-console.error('Database error:', err); // Error
-```
-
-**Development Logging:**
-- All logs printed to terminal
-- Add custom logger utility: `src/utils/logger.js`
-
----
-
 ## Additional Resources
-
-### Documentation Files
-
-- `SECURITY_IMPROVEMENTS.md` - Security features implementation
-- `COLLABORATION_API_GUIDE.md` - Real-time collaboration guide
-- `REALTIME_COLLABORATION_README.md` - Hocuspocus setup
-- `FRONTEND_API_DOCUMENTATION.md` - Frontend integration guide
 
 ### API Documentation
 
 - **Swagger UI:** `http://localhost:5000/api-docs`
-- **Postman Collection:** (To be added)
 
 ### Repository
 
