@@ -167,16 +167,35 @@ module.exports = {
   // Get Employees
   getEmployees: async (req, res) => {
     // GET /api/admin/employees - List pegawai
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10, search = '' } = req.query;
     try {
       const skip = (page - 1) * limit;
       
-      const users = await User.find()
+      // Build search filter
+      let filter = {};
+      if (search) {
+        // Split search query by space to support multiple keywords
+        const keywords = search.trim().split(/\s+/);
+        
+        // Build AND conditions for all keywords
+        // Each keyword must match at least one field (name, email, or division)
+        filter = {
+          $and: keywords.map(keyword => ({
+            $or: [
+              { name: { $regex: keyword, $options: 'i' } },
+              { email: { $regex: keyword, $options: 'i' } },
+              { division: { $regex: keyword, $options: 'i' } }
+            ]
+          }))
+        };
+      }
+      
+      const users = await User.find(filter)
         .skip(skip)
         .limit(parseInt(limit))
         .select('-password');
 
-      const total = await User.countDocuments();
+      const total = await User.countDocuments(filter);
 
       res.status(200).json({
         status: 'success',
