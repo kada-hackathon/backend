@@ -3,6 +3,7 @@
 const User = require('../models/User')
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
+const { validatePassword } = require('../utils/passwordValidator');
 const ALLOWED_DOMAINS_REGEX=/@(gmail\.com|yahoo\.com)$/i;
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
@@ -204,6 +205,16 @@ module.exports = {
 
     if (!token || !newPassword) {
       return res.status(400).json({message: 'Token and new password are required'});
+    }
+
+    // Validate new password strength
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({
+        status: 'error',
+        code: 'WEAK_PASSWORD',
+        message: passwordValidation.message
+      });
     }
 
     try {

@@ -3,6 +3,7 @@
 
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
+const { validatePassword } = require('../utils/passwordValidator');
 
 const ALLOWED_DOMAINS_REGEX = /@(gmail\.com|yahoo\.com)$/i;
 
@@ -27,6 +28,16 @@ module.exports = {
           status: 'error',
           code: 'INVALID_EMAIL_DOMAIN',
           message: 'Email domain is not allowed. Use gmail or yahoo only.'
+        });
+      }
+
+      // Validate password strength
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.isValid) {
+        return res.status(400).json({
+          status: 'error',
+          code: 'WEAK_PASSWORD',
+          message: passwordValidation.message
         });
       }
 
