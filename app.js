@@ -12,6 +12,10 @@ const uploadRoutes = require('./src/routes/uploadRoutes');
 
 const app = express();
 
+// Trust proxy - Required for rate limiting behind reverse proxies (like DigitalOcean)
+// This allows Express to trust X-Forwarded-For header
+app.set('trust proxy', 1);
+
 // Security: Helmet middleware for security headers
 app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP for now (can be configured later)

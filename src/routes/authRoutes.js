@@ -19,7 +19,8 @@ const loginLimiter = rateLimit({
 const forgotPasswordLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 5, // Limit each email to 5 forgot password requests per hour
-  keyGenerator: (req) => {
+  keyGenerator: (req, res) => {
+    // Use email if provided, otherwise use IP (automatically IPv6 compatible)
     return req.body.email || req.ip;
   },
   message: {
@@ -33,7 +34,8 @@ const forgotPasswordLimiter = rateLimit({
 const resetPasswordLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10, // Allow 10 attempts per token (user might make typos)
-  keyGenerator: (req) => {
+  keyGenerator: (req, res) => {
+    // Use token if provided, otherwise use IP (automatically IPv6 compatible)
     return req.body.token || req.ip;
   },
   message: {
@@ -51,5 +53,8 @@ router.post('/forgot-password', forgotPasswordLimiter, authController.forgotPass
 router.post('/reset-password', resetPasswordLimiter, authController.resetPassword);
 router.get('/profile', protect, authController.getProfile);
 router.put('/profile', protect, authController.updateProfile);
+
+// Debug endpoint to verify token status (helps debug 401 errors)
+router.get('/verify-token', authController.verifyToken);
 
 module.exports = router;

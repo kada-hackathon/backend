@@ -242,4 +242,100 @@ module.exports = {
       return res.status(500).json({message: 'Failed to reset password', error: error.message});
     }
   },
+
+  // Debug endpoint to verify token validity (helps debug 401 errors)
+  verifyToken: async (req, res) => {
+    try {
+      const token = req.headers?.authorization?.replace(/bearer\s+/i, "");
+      
+      if (!token) {
+        return res.status(400).json({ 
+          valid: false,
+          message: "No token provided in Authorization header" 
+        });
+      }
+
+      // Try to decode without verification first (to see payload even if invalid)
+      const decodedUnverified = jwt.decode(token);
+      
+      if (!decodedUnverified) {
+        return res.status(400).json({ 
+          valid: false,
+          message: "Token is malformed - not a valid JWT format",
+          error: "jwt_malformed"
+        });
+      }
+
+      // Now verify the token signature and expiration
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      
+      // Check if user still exists in database
+      const user = await User.findById(decoded.id).select("-password");
+      
+      if (!user) {
+        return res.status(404).json({ 
+          valid: false,
+          message: "Token is valid but user no longer exists in database",
+          tokenPayload: decodedUnverified
+        });
+      }
+
+      // Calculate time until expiry
+      const now = Math.floor(Date.now() / 1000);
+      const timeUntilExpiry = decoded.exp - now;
+
+      return res.status(200).json({
+        valid: true,
+        message: "Token is valid and user exists",
+        user: {
+          id: user._id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          division: user.division
+        },
+        tokenInfo: {
+          issuedAt: new Date(decoded.iat * 1000).toISOString(),
+          expiresAt: new Date(decoded.exp * 1000).toISOString(),
+          timeUntilExpirySeconds: timeUntilExpiry,
+          timeUntilExpiryMinutes: Math.floor(timeUntilExpiry / 60),
+          timeUntilExpiryHours: Math.floor(timeUntilExpiry / 3600)
+        }
+      });
+    } catch (error) {
+      // Handle specific JWT errors
+      if (error.name === 'JsonWebTokenError') {
+        return res.status(401).json({ 
+          valid: false,
+          message: "Token signature is invalid",
+          error: "jwt_malformed",
+          details: error.message
+        });
+      }
+      
+      if (error.name === 'TokenExpiredError') {
+        const expiredAt = error.expiredAt ? new Date(error.expiredAt).toISOString() : 'unknown';
+        return res.status(401).json({ 
+          valid: false,
+          message: "Token has expired - please login again",
+          error: "jwt_expired",
+          expiredAt: expiredAt
+        });
+      }
+      
+      if (error.name === 'NotBeforeError') {
+        return res.status(401).json({ 
+          valid: false,
+          message: "Token is not yet valid",
+          error: "jwt_not_before"
+        });
+      }
+      
+      return res.status(500).json({ 
+        valid: false,
+        message: "Error verifying token",
+        error: error.message
+      });
+    }
+  }
 };
