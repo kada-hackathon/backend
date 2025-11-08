@@ -11,6 +11,8 @@ const chatBotRoutes = require('./src/routes/chatbotRoutes');
 const uploadRoutes = require('./src/routes/uploadRoutes');
 
 const app = express();
+//believe this is needed for rate limiting to work correctly behind proxies (like DigitalOcean App Platform)
+app.set('trust proxy', 1);
 
 // Security: Helmet middleware for security headers
 app.use(helmet({

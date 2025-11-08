@@ -8,6 +8,7 @@ const { protect } = require('../middlewares/authMiddleware');
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // Limit each IP to 5 login requests per windowMs
+  keyGenerator: rateLimit.ipKeyGenerator,
   message: {
     status: 'error',
     message: 'Too many login attempts from this IP, please try again after 15 minutes'
@@ -19,9 +20,7 @@ const loginLimiter = rateLimit({
 const forgotPasswordLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 5, // Limit each email to 5 forgot password requests per hour
-  keyGenerator: (req) => {
-    return req.body.email || req.ip;
-  },
+  keyGenerator: rateLimit.ipKeyGenerator,
   message: {
     status: 'error',
     message: 'Too many password reset requests for this email, please try again after 1 hour'
@@ -33,9 +32,7 @@ const forgotPasswordLimiter = rateLimit({
 const resetPasswordLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10, // Allow 10 attempts per token (user might make typos)
-  keyGenerator: (req) => {
-    return req.body.token || req.ip;
-  },
+  keyGenerator: rateLimit.ipKeyGenerator,
   message: {
     status: 'error',
     message: 'Too many password reset attempts for this link, please request a new reset link'
