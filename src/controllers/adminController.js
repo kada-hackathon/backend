@@ -167,7 +167,7 @@ module.exports = {
   // Get Employees
   getEmployees: async (req, res) => {
     // GET /api/admin/employees - List pegawai
-    const { page = 1, limit = 10, search = '' } = req.query;
+    const { page = 1, limit = 100, search = '' } = req.query;
     try {
       const skip = (page - 1) * limit;
       

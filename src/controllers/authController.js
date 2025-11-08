@@ -100,8 +100,6 @@ module.exports = {
       user.resetPasswordExpire = Date.now() + 3600000; // 1 hour
       await user.save();
 
-      
-
       const resetUrl = `http://localhost:8080/new-password/${resetToken}`;
       const message = 'You are receiving this email because you (or someone else) has requested the reset of a password of NEBWORK. Please reset your password by clicking the link below (Expire in one hour): \n\n' + resetUrl;
 
