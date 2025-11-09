@@ -49,12 +49,20 @@ const uploadBase64ToSpaces = async (base64Data, originalName, fileType = 'image'
   const fileName = generateFileName(originalName || `${fileType}.${contentType.split('/')[1]}`, timestamp);
   const fullPath = `${dateFolder}/${fileName}`;
   
+  // Determine if file should be displayed inline or as attachment
+  const isInlineType = contentType.startsWith('image/') || 
+                       contentType.startsWith('video/') || 
+                       contentType.startsWith('audio/') ||
+                       contentType === 'application/pdf';
+  
   const command = new PutObjectCommand({
     Bucket: process.env.OS_BUCKET,
     Key: fullPath,
     Body: buffer,
     ACL: 'public-read',
-    ContentType: contentType
+    ContentType: contentType,
+    // Set ContentDisposition to display inline for media files, download for others
+    ContentDisposition: isInlineType ? 'inline' : `attachment; filename="${originalName || fileName}"`
   });
 
   await s3Client.send(command);
