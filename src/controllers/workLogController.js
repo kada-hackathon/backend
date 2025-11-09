@@ -276,13 +276,28 @@ exports.filterWorkLogs = async (req, res) => {
 
     // Build base filter untuk DB query
     let filter = {};
+    let userFilter = null;
 
-    // Search by title, content
+    // Search by title, content, or user name
     if (search) {
+      // First, find users matching the search query
+      const matchingUsers = await User.find({
+        name: { $regex: search, $options: 'i' },
+        division: userDivision // Only search within same division
+      }).select('_id');
+      
+      const matchingUserIds = matchingUsers.map(u => u._id);
+      
+      // Build search filter
       filter.$or = [
         { title: { $regex: search, $options: 'i' } },
         { content: { $regex: search, $options: 'i' } }
       ];
+      
+      // Add user ID filter if matching users found
+      if (matchingUserIds.length > 0) {
+        filter.$or.push({ user: { $in: matchingUserIds } });
+      }
     }
 
     // Filter by tags (dapat comma-separated atau array)
