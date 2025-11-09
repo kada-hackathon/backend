@@ -37,7 +37,7 @@ const { v4: uuidv4 } = require('uuid');
  * - Meaningful error messages for debugging
  * - Don't expose internal errors to users
  * 
- * @author Principal Engineer
+ * @author Arrizal Bintang Ramadhan
  * @date October 2025
  * ====================================================================
  */

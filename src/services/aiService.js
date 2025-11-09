@@ -28,7 +28,7 @@
  * Cost Considerations:
  * - Input tokens: ~$0.000002 per token
  * - Output tokens: ~$0.00001 per token (5x more expensive!)
- * - 450 max_tokens = ~$0.0045 per request
+ * - 1024 max_tokens = ~$0.01 per request
  * 
  * Future Enhancements:
  * - Streaming responses (text appears gradually)
@@ -72,10 +72,10 @@ class AIService {
      * 
      * Parameters Explained:
      * 
-     * max_tokens: 450
+     * max_tokens: 1024
      * - Maximum length of AI response
      * - More tokens = longer answer BUT slower + more expensive
-     * - 450 tokens ≈ 300-400 words (comprehensive but not excessive)
+     * - 1024 tokens ≈ 700-800 words (comprehensive without truncation)
      * 
      * temperature: 0.75
      * - Controls randomness/creativity
@@ -94,13 +94,13 @@ class AIService {
      * - "What is machine learning?" ≈ 6 tokens
      * - Context (7 logs × 800 chars) ≈ 1400 tokens
      * - Total input: ~1500 tokens
-     * - Output: up to 450 tokens
+     * - Output: up to 1024 tokens
      * 
      * Processing Time Breakdown:
      * - Network latency: 200-400ms (Asia → USA)
      * - Input processing: 1ms per token × 1500 = 1500ms
-     * - Output generation: 10-15ms per token × 450 = 4500-6750ms
-     * - Total: 6200-8650ms (matches our observed 7000ms!)
+     * - Output generation: 10-15ms per token × 1024 = 10240-15360ms
+     * - Total: 11940-17260ms (may take longer with increased tokens)
      * 
      * Error Scenarios:
      * - Timeout: > 15 seconds (geographic issues, server overload)
@@ -130,7 +130,7 @@ class AIService {
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userMessage }
             ],
-            max_tokens: 450, // Balanced: enough for comprehensive answers
+            max_tokens: 1024, // Increased to prevent response truncation
             temperature: 0.75, // Balanced: creative but focused
             top_p: 0.9
         };
@@ -140,11 +140,11 @@ class AIService {
         const startTime = Date.now();
         
         try {
-            // Timeout protection: Abort request after 15 seconds
-            // Why 15s? Geographic latency (400ms) + max generation time (12000ms) + buffer
+            // Timeout protection: Abort request after 20 seconds
+            // Why 20s? Geographic latency (400ms) + max generation time (15360ms) + buffer
             // Without timeout, request could hang indefinitely
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
+            const timeoutId = setTimeout(() => controller.abort(), 20000);
 
             const response = await fetch(this.apiUrl, {
                 method: "POST",
@@ -187,7 +187,7 @@ class AIService {
         } catch (error) {
             // Handle timeout specifically
             if (error.name === 'AbortError') {
-                throw new Error('AI request timed out after 15 seconds');
+                throw new Error('AI request timed out after 20 seconds');
             }
             // Propagate other errors
             throw error;

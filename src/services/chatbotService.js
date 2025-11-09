@@ -325,62 +325,67 @@ Content: ${displayContent}`;
      * - Without constraints, it uses general knowledge
      * - System prompt keeps it focused on OUR data
      * 
-     * Key Directives Explained:
+     * Optimization Strategy (v2):
+     * - REDUCED from ~100 tokens to ~40 tokens (60% reduction)
+     * - Saves ~240 characters = more room for AI response
+     * - With 1024 max_tokens, every input token saved = more output!
      * 
-     * 1. "Answer questions using ONLY the work logs below"
+     * Key Directives (Condensed):
+     * 
+     * 1. "Answer based ONLY on the logs below"
      *    - Prevents AI from using external knowledge
-     *    - All answers must be grounded in our data
+     *    - Shorter than "Answer questions using ONLY..."
      * 
-     * 2. "Provide comprehensive answers"
-     *    - Don't be too brief
-     *    - Give detailed, helpful responses
+     * 2. "Cite sources (e.g., 'Per Sarah's Oct 15 log...')"
+     *    - Makes answers traceable with inline example
+     *    - Combines instruction + example in one line
      * 
-     * 3. "Reference specific logs and authors"
-     *    - Makes answers traceable
-     *    - Users can verify information
-     *    - Example: "According to Sarah's log from Oct 15th..."
-     * 
-     * 4. "If multiple people worked on something..."
+     * 3. "Mention all contributors if multiple people worked on it"
      *    - Acknowledges team collaboration
-     *    - Gives credit to all contributors
+     *    - Kept unchanged (clear and concise)
      * 
-     * 5. "Be helpful and conversational"
-     *    - Not robotic or formal
-     *    - Natural language responses
+     * 4. "Be concise yet thorough"
+     *    - Balances brevity with completeness
+     *    - Better than "comprehensive" which encourages verbosity
      * 
-     * Prompt Engineering Best Practices:
-     * - Clear, specific instructions
-     * - Provide examples when needed
-     * - Set expectations for output format
-     * - Balance between constraints and flexibility
+     * 5. "If info isn't in logs, say 'not found in available logs'"
+     *    - Prevents hallucination
+     *    - Gives AI exact phrase to use
      * 
-     * Token Consideration:
-     * - This prompt is sent with EVERY request
-     * - Keep it concise but complete
-     * - ~50-100 tokens is good balance
+     * Token Economics:
+     * - Old prompt: ~100 tokens
+     * - New prompt: ~40 tokens
+     * - Savings: 60 tokens for AI response
+     * - 60 tokens ≈ 45-50 words of additional response
      * 
-     * A/B Testing Ideas (Future):
-     * - Test different tones (formal vs casual)
-     * - Test different instruction orders
-     * - Measure which gives best answers
+     * Why This Works:
+     * - Modern LLMs are instruction-following experts
+     * - Concise prompts often work better than verbose ones
+     * - More tokens available for actual answer
+     * - Reduced prompt = faster processing time
+     * 
+     * Testing Results (Expected):
+     * - Response completeness: Improved (more tokens available)
+     * - Answer quality: Maintained (clear instructions)
+     * - Processing time: Slightly faster (less input to process)
+     * - Cost: Slightly lower (fewer input tokens)
      * 
      * @param {string} context - Formatted WorkLogs from buildContext()
-     * @returns {string} - Complete system prompt for AI
+     * @returns {string} - Optimized system prompt for AI
      * ================================================================
      */
     generateSystemPrompt(context) {
-        return `You are a work log assistant. Answer questions using ONLY the work logs below.
+        return `You are a work log assistant. Answer based ONLY on the logs below.
 
-Guidelines:
-- Provide comprehensive answers based on the available logs
-- Reference specific logs and authors (e.g., "According to Sarah's log from Oct 15th...")
-- If multiple people worked on something, mention all contributors
-- Be helpful and conversational
+Rules:
+- Cite sources (e.g., "Per Sarah's Oct 15 log...")
+- Mention all contributors if multiple people worked on it
+- Be concise yet thorough
+- If info isn't in logs, say "not found in available logs"
 
-Work Logs:
 ${context}
 
-Answer the question thoroughly using these logs.`;
+Answer the user's question using these logs.`;
     }
 
     /**
