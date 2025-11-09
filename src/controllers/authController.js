@@ -3,6 +3,7 @@
 const User = require('../models/User')
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
+const { validatePassword } = require('../utils/passwordValidator');
 const ALLOWED_DOMAINS_REGEX=/@(gmail\.com|yahoo\.com)$/i;
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
@@ -98,8 +99,6 @@ module.exports = {
       user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
       user.resetPasswordExpire = Date.now() + 3600000; // 1 hour
       await user.save();
-
-      
 
       const resetUrl = `http://localhost:8080/new-password/${resetToken}`;
       const message = 'You are receiving this email because you (or someone else) has requested the reset of a password of NEBWORK. Please reset your password by clicking the link below (Expire in one hour): \n\n' + resetUrl;
@@ -204,6 +203,16 @@ module.exports = {
 
     if (!token || !newPassword) {
       return res.status(400).json({message: 'Token and new password are required'});
+    }
+
+    // Validate new password strength
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({
+        status: 'error',
+        code: 'WEAK_PASSWORD',
+        message: passwordValidation.message
+      });
     }
 
     try {

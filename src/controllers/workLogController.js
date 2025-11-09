@@ -220,7 +220,7 @@ exports.getCollaborators = async (req, res) => {
   try {
     const log = await WorkLog.findById(req.params.id).populate(
       "collaborators",
-      "name email division role"
+      "name email division role profile_photo"
     );
     if (!log) return res.status(404).json({ message: "WorkLog not found" });
 
@@ -276,13 +276,28 @@ exports.filterWorkLogs = async (req, res) => {
 
     // Build base filter untuk DB query
     let filter = {};
+    let userFilter = null;
 
-    // Search by title, content
+    // Search by title, content, or user name
     if (search) {
+      // First, find users matching the search query
+      const matchingUsers = await User.find({
+        name: { $regex: search, $options: 'i' },
+        division: userDivision // Only search within same division
+      }).select('_id');
+      
+      const matchingUserIds = matchingUsers.map(u => u._id);
+      
+      // Build search filter
       filter.$or = [
         { title: { $regex: search, $options: 'i' } },
         { content: { $regex: search, $options: 'i' } }
       ];
+      
+      // Add user ID filter if matching users found
+      if (matchingUserIds.length > 0) {
+        filter.$or.push({ user: { $in: matchingUserIds } });
+      }
     }
 
     // Filter by tags (dapat comma-separated atau array)
@@ -315,7 +330,7 @@ exports.filterWorkLogs = async (req, res) => {
         match: { division: userDivision }, // Filter by division during population
         select: "name email division profile_photo"
       })
-      .populate("collaborators", "name email division")
+      .populate("collaborators", "name email division profile_photo")
       .sort({ updatedAt: -1 }); // Sort by last modified (most recent first)
 
     // Remove entries where user population returned null (different division)
@@ -355,7 +370,7 @@ exports.getWorkLogById = async (req, res) => {
   try {
     const worklog = await WorkLog.findById(req.params.id)
       .populate("user", "name email division profile_photo join_date")
-      .populate("collaborators", "name email division");
+      .populate("collaborators", "name email division profile_photo");
     
     if (!worklog) {
       return res.status(404).json({ message: "WorkLog not found" });

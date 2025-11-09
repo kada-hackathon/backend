@@ -140,10 +140,18 @@ class ChatbotService {
                 }
             ]);
 
+            // If vector search returns no results, use fallback
+            // This happens when Atlas vector index is not created yet
+            if (!results || results.length === 0) {
+                console.warn('⚠️  Vector search returned 0 results - using fallback (recent logs)');
+                console.warn('💡 To fix: Create Atlas Vector Search index named "worklog_vector_index"');
+                return await this.fallbackSearch(limit);
+            }
+
             return results;
 
         } catch (error) {
-            console.error('Vector search error:', error.message);
+            console.error('❌ Vector search error:', error.message);
             return await this.fallbackSearch(limit);
         }
     }
