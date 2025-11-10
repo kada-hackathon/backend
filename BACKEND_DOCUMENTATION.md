@@ -17,10 +17,9 @@
 7. [Authentication & Authorization](#authentication--authorization)
 8. [Security Features](#security-features)
 9. [Database Models](#database-models)
-10. [Real-time Collaboration](#real-time-collaboration)
-11. [Testing](#testing)
-12. [Deployment](#deployment)
-13. [Troubleshooting](#troubleshooting)
+10. [Testing](#testing)
+11. [Deployment](#deployment)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -33,14 +32,12 @@ NEBWORK is a work logging and knowledge management platform designed to help com
 - 📝 Work log creation, versioning, and collaboration
 - 🤖 AI-powered chatbot for knowledge retrieval
 - 📤 Media file uploads (images, documents)
-- 🔄 Real-time collaborative editing (Hocuspocus WebSocket)
 
 **Key Features:**
 - JWT-based authentication
 - Role-based access control (Admin/User)
 - AI embeddings for semantic search
 - Version control for work logs
-- Real-time collaboration
 - Secure file storage (DigitalOcean Spaces / AWS S3)
 
 ---
@@ -53,7 +50,6 @@ NEBWORK is a work logging and knowledge management platform designed to help com
 - **Database:** MongoDB (Mongoose ORM)
 - **Authentication:** JWT (jsonwebtoken)
 - **Password Hashing:** bcryptjs
-- **Real-time:** Hocuspocus WebSocket Server
 - **File Upload:** Multer + AWS SDK (S3-compatible)
 
 ### Security
@@ -85,13 +81,12 @@ backend-nebwork/
 │
 ├── src/
 │   ├── config/
-│   │   ├── db.js                   # MongoDB connection
-│   │   └── websocket.js            # Hocuspocus setup
+│   │   └── db.js                   # MongoDB connection
 │   │
 │   ├── controllers/
 │   │   ├── authController.js       # Login, logout, profile, password reset
 │   │   ├── adminController.js      # Employee CRUD (Admin only)
-│   │   ├── workLogController.js    # WorkLog CRUD + versioning + collaboration
+│   │   ├── workLogController.js    # WorkLog CRUD + versioning
 │   │   └── chatbotController.js    # AI chatbot logic
 │   │
 │   ├── models/
@@ -128,7 +123,6 @@ backend-nebwork/
 │   ├── test/
 │   │   ├── auth.test.js            # Authentication tests
 │   │   ├── worklog.test.js         # WorkLog CRUD tests
-│   │   ├── collaborator.test.js    # Collaboration tests
 │   │   └── jest.setup.js           # Test configuration
 │   │
 │   └── scripts/
@@ -720,31 +714,6 @@ Authorization: Bearer <token>
 
 ---
 
-#### 11. Get Collaboration Status
-```http
-GET /api/worklogs/:id/collaboration/status
-Authorization: Bearer <token>
-```
-
-**Response (200 OK):**
-```json
-{
-  "worklogId": "507f1f77bcf86cd799439011",
-  "activeUsers": [
-    {
-      "userId": "507f1f77bcf86cd799439012",
-      "name": "Jane Doe",
-      "email": "jane@example.com",
-      "socketId": "abc123",
-      "connectedAt": "2025-11-07T10:30:00.000Z"
-    }
-  ],
-  "totalActiveUsers": 1
-}
-```
-
----
-
 ### 🤖 Chatbot Endpoints (`/api/chatbot`)
 
 #### 1. Send Message to Chatbot
@@ -1127,16 +1096,6 @@ UserSchema.pre('save', async function(next){
   user: ObjectId → User (required),
   log_history: [ObjectId → LogHistory],
   embedding: [Number] (vector, hidden by default),
-  yjsState: Buffer (Yjs document state, hidden),
-  activeUsers: [
-    {
-      userId: ObjectId → User,
-      name: String,
-      email: String,
-      socketId: String,
-      connectedAt: Date
-    }
-  ],
   createdAt: Date (auto),
   updatedAt: Date (auto)
 }
@@ -1188,44 +1147,6 @@ UserSchema.pre('save', async function(next){
 
 ---
 
-## Real-time Collaboration
-
-### Technology: Hocuspocus + Yjs
-
-**File:** `src/config/websocket.js`
-
-**WebSocket Endpoint:** `ws://localhost:5000`
-
-**How it works:**
-1. Frontend uses Tiptap editor with Yjs provider
-2. Multiple users connect to same document via WebSocket
-3. Changes are synced in real-time using CRDT (Conflict-free Replicated Data Type)
-4. Document state is persisted to MongoDB (`yjsState` field)
-
-**Active Users Tracking:**
-- When user connects → Added to `worklog.activeUsers`
-- When user disconnects → Removed from `worklog.activeUsers`
-- Frontend can display who's currently editing
-
-**Setup:**
-```javascript
-const { setupHocuspocus } = require('./src/config/websocket');
-const hocuspocusServer = setupHocuspocus(server);
-```
-
-**Frontend Integration:**
-```javascript
-import { HocuspocusProvider } from '@hocuspocus/provider';
-
-const provider = new HocuspocusProvider({
-  url: 'ws://localhost:5000',
-  name: worklogId, // Document identifier
-  token: jwtToken  // Authentication
-});
-```
-
----
-
 ## Testing
 
 ### Test Suite
@@ -1235,7 +1156,6 @@ const provider = new HocuspocusProvider({
 **Files:**
 - `src/test/auth.test.js` - Authentication tests
 - `src/test/worklog.test.js` - WorkLog CRUD tests
-- `src/test/collaborator.test.js` - Collaboration tests
 - `src/test/version.test.js` - Versioning tests
 
 ### Run Tests
@@ -1263,7 +1183,6 @@ npm test
 | Password Reset | ✅ Forgot, Reset |
 | WorkLog CRUD | ✅ Create, Read, Update, Delete |
 | Versioning | ✅ Add, Get versions |
-| Collaboration | ✅ Add, Remove collaborators |
 | Admin | ⚠️ Partial |
 | Chatbot | ❌ Not tested |
 

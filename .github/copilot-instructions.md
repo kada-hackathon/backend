@@ -1,7 +1,7 @@
 # NEBWORK Backend Development Guide
 
 ## Project Overview
-NEBWORK is a work logging and collaboration platform with integrated chatbot capabilities. The backend is structured to handle employee management, authentication, work logs, and AI-powered chat interactions.
+NEBWORK is a work logging platform with integrated chatbot capabilities. The backend is structured to handle employee management, authentication, work logs, and AI-powered chat interactions.
 
 ## Core Architecture
 

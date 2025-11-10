@@ -25,7 +25,7 @@ app.use((req, res, next) => {
   const origin = req.headers.origin;
   
   // Allow localhost with all dev ports (5173, 5174, 8080, etc) OR production frontend
-  if (origin && (origin.startsWith('http://localhost:') || origin.startsWith('https://frontend-he2bh.ondigitalocean.app'))) {
+  if (origin && (origin.startsWith('http://localhost:') || origin.startsWith('https://frontend-he2bh.ondigitalocean.app') || origin.startsWith('https://nebwork.app'))) {
     res.header('Access-Control-Allow-Origin', origin);
   }
   

@@ -29,23 +29,12 @@ connectDB();
 // create app from app.js
 const app = require('./app');
 const mongoose = require('mongoose');
-const { setupHocuspocus, destroyHocuspocus } = require('./src/config/websocket');
 
 // Jalankan Server
 const PORT = process.env.PORT || 5000; 
 const server = app.listen(PORT, () => {
   console.log(`✅ Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });
-
-// Setup Hocuspocus WebSocket server for real-time collaboration
-let hocuspocusServer;
-try {
-  hocuspocusServer = setupHocuspocus(server);
-  console.log('✅ Real-time collaboration enabled via Hocuspocus');
-} catch (error) {
-  console.error('❌ Failed to initialize Hocuspocus:', error.message);
-  // Continue without real-time collaboration if setup fails
-}
 
 // Graceful shutdown for DigitalOcean App Platform deployments
 const gracefulShutdown = async (signal) => {
@@ -55,11 +44,6 @@ const gracefulShutdown = async (signal) => {
     console.log('HTTP server closed.');
     
     try {
-      // Destroy Hocuspocus WebSocket server
-      if (hocuspocusServer) {
-        await destroyHocuspocus(hocuspocusServer);
-      }
-      
       await mongoose.connection.close(false);
       console.log('MongoDB connection closed.');
       process.exit(0);
