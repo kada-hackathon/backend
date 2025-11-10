@@ -49,6 +49,11 @@ module.exports = {
         return res.status(401).json({message :"Your password or email is incorrect!"});
       }
 
+      // Check if user is blocked
+      if (user.isActive === false) {
+        return res.status(403).json({message: "Your account has been blocked. Please contact administrator."});
+      }
+
       // compare hashed password
       const isMatch = await bcrypt.compare(password, user.password);
       

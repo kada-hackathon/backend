@@ -21,6 +21,11 @@ exports.protect = async (req, res, next) => {
       return res.status(401).json({ message: "User not found or inactive" });
     }
 
+    // Check if user is blocked/inactive
+    if (req.user.isActive === false) {
+      return res.status(403).json({ message: "Your account has been blocked. Please contact administrator." });
+    }
+
     next();
   } catch (error) {
     console.error("Auth middleware error:", error.message);

@@ -14,5 +14,6 @@ router.post('/employees', protect, isAdmin, adminController.addEmployee);
 router.put('/employees/:id', protect, isAdmin, adminController.editEmployee);
 router.delete('/employees/:id', protect, isAdmin, adminController.deleteEmployee);
 router.get('/employees', protect, adminController.getEmployees);
+router.patch('/employees/:id/toggle-status', protect, isAdmin, adminController.toggleEmployeeStatus);
 
 module.exports = router;

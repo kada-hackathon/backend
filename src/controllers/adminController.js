@@ -98,8 +98,8 @@ module.exports = {
         });
       }
 
-      // Validasi domain email jika email diubah
-      if(email && !ALLOWED_DOMAINS_REGEX.test(email)){
+      // Validasi domain email jika email diubah dan tidak kosong
+      if(email && email.trim() !== '' && !ALLOWED_DOMAINS_REGEX.test(email)){
         return res.status(400).json({
           status: 'error',
           code: 'INVALID_EMAIL_DOMAIN',
@@ -108,7 +108,7 @@ module.exports = {
       }
 
       // Update fields
-      if(email) user.email = email;
+      if(email && email.trim() !== '') user.email = email;
       if(name) user.name = name;
       if(division) user.division = division;
       if(role) user.role = role;
@@ -213,6 +213,43 @@ module.exports = {
         status: 'error',
         code: 'SERVER_ERROR',
         message: 'Failed to retrieve employees'
+      });
+    }
+  },
+
+  // Toggle Employee Active Status (Block/Unblock)
+  toggleEmployeeStatus: async (req, res) => {
+    // PATCH /api/admin/employees/:id/toggle-status - Block/Unblock user
+    const { id } = req.params;
+    try {
+      const user = await User.findById(id);
+      if(!user){
+        return res.status(404).json({
+          status: 'error',
+          code: 'NOT_FOUND',
+          message: 'Employee not found'
+        });
+      }
+
+      // Toggle isActive status
+      user.isActive = !user.isActive;
+      await user.save();
+
+      res.status(200).json({
+        status: 'success',
+        message: user.isActive ? 'User unblocked successfully' : 'User blocked successfully',
+        data: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          isActive: user.isActive
+        }
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: 'error',
+        code: 'SERVER_ERROR',
+        message: 'Failed to toggle user status'
       });
     }
   }
