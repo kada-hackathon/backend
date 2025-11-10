@@ -6,7 +6,7 @@ const { processMediaUploads, extractMediaUrls, deleteFromSpaces } = require("../
 
 exports.addWorkLog = async (req, res) => {
   try {
-    const { title, content, tag, media } = req.body;
+    const { title, content, tag, media, collaborator } = req.body;
 
     // 🔥 Process uploads:
     // - Inline images in content (base64 → URL)
@@ -22,6 +22,7 @@ exports.addWorkLog = async (req, res) => {
       content: processedContent, 
       tag, 
       media: processedMedia, 
+      collaborators: collaborator || [], 
       user: req.user._id, 
       embedding
     });
